@@ -1,4 +1,4 @@
-#circom runctime
+# circom runtime
 
 This is the code needed to calculate the witness by a circuit compiled with [circom](https://github.com/iden3/circom).
 
