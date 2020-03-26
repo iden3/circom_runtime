@@ -115,12 +115,12 @@ class WitnessCalculator {
         this.n64 = Math.floor((this.prime.bitLength() - 1) / 64)+1;
         this.R = bigInt.one.shiftLeft(this.n64*64);
         this.RInv = this.R.modInv(this.prime);
-        this.sanityCheck = sanityCheck ? 1 : 0;
+        this.sanityCheck = sanityCheck;
 
     }
 
-    async _doCalculateWitness(input) {
-        this.instance.exports.init(this.sanityCheck);
+    async _doCalculateWitness(input, sanityCheck) {
+        this.instance.exports.init((this.sanityCheck || sanityCheck) ? 1 : 0);
         const pSigOffset = this.allocInt();
         const pFr = this.allocFr();
         for (let k in input) {
@@ -138,13 +138,13 @@ class WitnessCalculator {
 
     }
 
-    async calculateWitness(input) {
+    async calculateWitness(input, sanityCheck) {
         const self = this;
 
         const old0 = self.i32[0];
         const w = [];
 
-        await self._doCalculateWitness(input);
+        await self._doCalculateWitness(input, sanityCheck);
 
         for (let i=0; i<self.NVars; i++) {
             const pWitness = self.instance.exports.getPWitness(i);
@@ -155,12 +155,12 @@ class WitnessCalculator {
         return w;
     }
 
-    async calculateBinWitness(input) {
+    async calculateBinWitness(input, sanityCheck) {
         const self = this;
 
         const old0 = self.i32[0];
 
-        await self._doCalculateWitness(input);
+        await self._doCalculateWitness(input, sanityCheck);
 
         const pWitnessBuffer = self.instance.exports.getWitnessBuffer();
 
