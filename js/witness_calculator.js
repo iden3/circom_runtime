@@ -1,10 +1,29 @@
 /* globals WebAssembly */
+/*
+
+Copyright 2020 0KIMS association.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+*/
 
 const utils = require("./utils");
 const bigInt = require("big-integer");
 
 
-module.exports.builder = async function(code) {
+module.exports = async function builder(code, options) {
+
+    options = options || {};
 
     const memory = new WebAssembly.Memory({initial:20000});
     const wasmModule = await WebAssembly.compile(code);
@@ -29,10 +48,40 @@ module.exports.builder = async function(code) {
             log: function(a) {
                 console.log(wc.getFr(a).toString());
             },
+            logGetSignal: function(signal, pVal) {
+                if (options.logGetSignal) {
+                    options.logGetSignal(signal, wc.getFr(pVal) );
+                }
+            },
+            logSetSignal: function(signal, pVal) {
+                if (options.logSetSignal) {
+                    options.logSetSignal(signal, wc.getFr(pVal) );
+                }
+            },
+            logStartComponent: function(cIdx) {
+                if (options.logStartComponent) {
+                    options.logStartComponent(cIdx);
+                }
+            },
+            logFinishComponent: function(cIdx) {
+                if (options.logFinishComponent) {
+                    options.logFinishComponent(cIdx);
+                }
+            }
         }
     });
 
-    wc = new WitnessCalculator(memory, instance);
+    const sanityCheck =
+        options &&
+        (
+            options.sanityCheck ||
+            options.logGetSignal ||
+            options.logSetSignal ||
+            options.logStartComponent ||
+            options.logFinishComponent
+        );
+
+    wc = new WitnessCalculator(memory, instance, sanityCheck);
     return wc;
 
     function p2str(p) {
@@ -47,7 +96,7 @@ module.exports.builder = async function(code) {
 };
 
 class WitnessCalculator {
-    constructor(memory, instance) {
+    constructor(memory, instance, sanityCheck) {
         this.memory = memory;
         this.i32 = new Uint32Array(memory.buffer);
         this.instance = instance;
@@ -66,13 +115,12 @@ class WitnessCalculator {
         this.n64 = Math.floor((this.prime.bitLength() - 1) / 64)+1;
         this.R = bigInt.one.shiftLeft(this.n64*64);
         this.RInv = this.R.modInv(this.prime);
+        this.sanityCheck = sanityCheck ? 1 : 0;
 
     }
 
-    async calculateWitness(input) {
-        const w = [];
-        const old0 = this.i32[0];
-        this.instance.exports.init();
+    async _doCalculateWitness(input) {
+        this.instance.exports.init(this.sanityCheck);
         const pSigOffset = this.allocInt();
         const pFr = this.allocFr();
         for (let k in input) {
@@ -88,14 +136,38 @@ class WitnessCalculator {
             }
         }
 
+    }
 
-        for (let i=0; i<this.NVars; i++) {
-            const pWitness = this.instance.exports.getPWitness(i);
-            w.push(this.getFr(pWitness));
+    async calculateWitness(input) {
+        const self = this;
+
+        const old0 = self.i32[0];
+        const w = [];
+
+        await self._doCalculateWitness(input);
+
+        for (let i=0; i<self.NVars; i++) {
+            const pWitness = self.instance.exports.getPWitness(i);
+            w.push(self.getFr(pWitness));
         }
 
-        this.i32[0] = old0;
+        self.i32[0] = old0;
         return w;
+    }
+
+    async calculateBinWitness(input) {
+        const self = this;
+
+        const old0 = self.i32[0];
+
+        await self._doCalculateWitness(input);
+
+        const pWitnessBuffer = self.instance.exports.getWitnessBuffer();
+
+        self.i32[0] = old0;
+
+        const buff = self.memory.buffer.slice(pWitnessBuffer, pWitnessBuffer + (self.NVars * self.n64 * 8));
+        return buff;
     }
 
     allocInt() {

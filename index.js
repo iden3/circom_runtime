@@ -1,1 +1,1 @@
-module.exports = require("js/witnes_calculator.js");
+module.exports.WitnessCalculatorBuilder = require("./js/witness_calculator.js");
