@@ -18,7 +18,8 @@ limitations under the License.
 */
 
 const utils = require("./utils");
-const bigInt = require("big-integer");
+const Scalar = require("ffjavascript").Scalar;
+const F1Field = require("ffjavascript").F1Field;
 
 
 module.exports = async function builder(code, options) {
@@ -104,19 +105,21 @@ class WitnessCalculator {
         this.n32 = (this.instance.exports.getFrLen() >> 2) - 2;
         const pRawPrime = this.instance.exports.getPRawPrime();
 
-        this.prime = bigInt(0);
-        for (let i=this.n32-1; i>=0; i--) {
-            this.prime = this.prime.shiftLeft(32);
-            this.prime = this.prime.add(bigInt(this.i32[(pRawPrime >> 2) + i]));
+        const arr = new Array(this.n32);
+        for (let i=0; i<this.n32; i++) {
+            arr[this.n32-1-i] = this.i32[(pRawPrime >> 2) + i];
         }
 
-        this.mask32 = bigInt("FFFFFFFF", 16);
-        this.NVars = this.instance.exports.getNVars();
-        this.n64 = Math.floor((this.prime.bitLength() - 1) / 64)+1;
-        this.R = bigInt.one.shiftLeft(this.n64*64);
-        this.RInv = this.R.modInv(this.prime);
-        this.sanityCheck = sanityCheck;
+        this.prime = Scalar.fromArray(arr, 0x100000000);
 
+        this.Fr = new F1Field(this.prime);
+
+        this.mask32 = Scalar.fromString("FFFFFFFF", 16);
+        this.NVars = this.instance.exports.getNVars();
+        this.n64 = Math.floor((this.Fr.bitLength - 1) / 64)+1;
+        this.R = this.Fr.e( Scalar.shiftLeft(1 , this.n64*64));
+        this.RInv = this.Fr.inv(this.R);
+        this.sanityCheck = sanityCheck;
     }
 
     async _doCalculateWitness(input, sanityCheck) {
@@ -195,11 +198,11 @@ class WitnessCalculator {
         const idx = (p>>2);
 
         if (self.i32[idx + 1] & 0x80000000) {
-            let res= bigInt(0);
-            for (let i=self.n32-1; i>=0; i--) {
-                res = res.shiftLeft(32);
-                res = res.add(bigInt(self.i32[idx+2+i]));
+            const arr = new Array(self.n32);
+            for (let i=0; i<self.n32; i++) {
+                arr[self.n32-1-i] = self.i32[idx+2+i];
             }
+            const res = self.Fr.e(Scalar.fromArray(arr, 0x100000000));
             if (self.i32[idx + 1] & 0x40000000) {
                 return fromMontgomery(res);
             } else {
@@ -208,14 +211,14 @@ class WitnessCalculator {
 
         } else {
             if (self.i32[idx] & 0x80000000) {
-                return self.prime.add( bigInt(self.i32[idx]).minus(bigInt(0x100000000)) );
+                return self.Fr.e( self.i32[idx] - 0x100000000);
             } else {
-                return bigInt(self.i32[idx]);
+                return self.Fr.e(self.i32[idx]);
             }
         }
 
         function fromMontgomery(n) {
-            return n.times(self.RInv).mod(self.prime);
+            return self.Fr.mul(self.RInv, n);
         }
 
     }
@@ -223,32 +226,36 @@ class WitnessCalculator {
 
     setFr(p, v) {
         const self = this;
-        v = bigInt(v);
 
-        if (v.lt(bigInt("80000000", 16)) ) {
-            return setShortPositive(v);
-        }
-        if (v.geq(self.prime.minus(bigInt("80000000", 16))) ) {
-            return setShortNegative(v);
-        }
-        return setLongNormal(v);
+        const minShort = self.Fr.neg(self.Fr.e("80000000"));
+        const maxShort = self.Fr.e("7FFFFFFF", 16);
 
-        function setShortPositive(a) {
-            self.i32[(p >> 2)] = parseInt(a);
+        if (  (self.Fr.geq(v, minShort))
+            &&(self.Fr.leq(v, maxShort)))
+        {
+            let a;
+            if (self.Fr.geq(v, self.Fr.zero)) {
+                a = Scalar.toNumber(v);
+            } else {
+                a = Scalar.toNumber( self.Fr.sub(v, minShort));
+                a = v - 0x80000000;
+                a = 0x100000000 + a;
+            }
+            self.i32[(p >> 2)] = a;
             self.i32[(p >> 2) + 1] = 0;
+            return;
         }
 
-        function setShortNegative(a) {
-            const b = bigInt("80000000", 16 ).add(a.minus(  self.prime.minus(bigInt("80000000", 16 ))));
-            self.i32[(p >> 2)] = parseInt(b);
-            self.i32[(p >> 2) + 1] = 0;
-        }
+        self.i32[(p >> 2)] = 0;
+        self.i32[(p >> 2) + 1] = 0x80000000;
+        const arr = Scalar.toArray(v, 0x100000000);
+        for (let i=0; i<self.n32; i++) {
+            const idx = arr.length-1-i;
 
-        function setLongNormal(a) {
-            self.i32[(p >> 2)] = 0;
-            self.i32[(p >> 2) + 1] = 0x80000000;
-            for (let i=0; i<self.n32; i++) {
-                self.i32[(p >> 2) + 2 + i] = a.shiftRight(i*32).and(self.mask32);
+            if ( idx >=0) {
+                self.i32[(p >> 2) + 2 + i] = arr[idx];
+            } else {
+                self.i32[(p >> 2) + 2 + i] = 0;
             }
         }
     }

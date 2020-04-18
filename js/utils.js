@@ -17,12 +17,9 @@ limitations under the License.
 */
 
 const fnv = require("fnv-plus");
-const bigInt = require("big-integer");
 
 module.exports.fnvHash = fnvHash;
 module.exports.flatArray = flatArray;
-module.exports.stringifyBigInts = stringifyBigInts;
-module.exports.unstringifyBigInts = unstringifyBigInts;
 
 function flatArray(a) {
     var res = [];
@@ -35,45 +32,11 @@ function flatArray(a) {
                 fillArray(res, a[i]);
             }
         } else {
-            res.push(bigInt(a));
+            res.push(a);
         }
     }
 }
 
 function fnvHash(str) {
     return fnv.hash(str, 64).hex();
-}
-
-function stringifyBigInts(o) {
-    if ((typeof(o) == "bigint") || o.isZero !== undefined)  {
-        return o.toString(10);
-    } else if (Array.isArray(o)) {
-        return o.map(stringifyBigInts);
-    } else if (typeof o == "object") {
-        const res = {};
-        for (let k in o) {
-            res[k] = stringifyBigInts(o[k]);
-        }
-        return res;
-    } else {
-        return o;
-    }
-}
-
-
-
-function unstringifyBigInts(o) {
-    if ((typeof(o) == "string") && (/^[0-9]+$/.test(o) ))  {
-        return bigInt(o);
-    } else if (Array.isArray(o)) {
-        return o.map(unstringifyBigInts);
-    } else if (typeof o == "object") {
-        const res = {};
-        for (let k in o) {
-            res[k] = unstringifyBigInts(o[k]);
-        }
-        return res;
-    } else {
-        return bigInt(o);
-    }
 }
