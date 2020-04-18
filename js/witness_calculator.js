@@ -227,7 +227,7 @@ class WitnessCalculator {
     setFr(p, v) {
         const self = this;
 
-        const minShort = self.Fr.neg(self.Fr.e("80000000"));
+        const minShort = self.Fr.neg(self.Fr.e("80000000", 16));
         const maxShort = self.Fr.e("7FFFFFFF", 16);
 
         if (  (self.Fr.geq(v, minShort))
@@ -238,7 +238,7 @@ class WitnessCalculator {
                 a = Scalar.toNumber(v);
             } else {
                 a = Scalar.toNumber( self.Fr.sub(v, minShort));
-                a = v - 0x80000000;
+                a = a - 0x80000000;
                 a = 0x100000000 + a;
             }
             self.i32[(p >> 2)] = a;
