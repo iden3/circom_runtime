@@ -227,6 +227,8 @@ class WitnessCalculator {
     setFr(p, v) {
         const self = this;
 
+        v = self.Fr.e(v);
+
         const minShort = self.Fr.neg(self.Fr.e("80000000", 16));
         const maxShort = self.Fr.e("7FFFFFFF", 16);
 
