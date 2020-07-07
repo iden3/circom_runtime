@@ -118,6 +118,19 @@ void writeOutBin(Circom_CalcWit *ctx, std::string filename) {
 
     write_ptr = fopen(filename.c_str(),"wb");
 
+    fwrite("wtns", 4, 1, write_ptr);
+
+    u32 version = 1;
+    fwrite(&version, 4, 1, write_ptr);
+
+    u32 n8 = Fr_N64*8;
+    fwrite(&n8, 4, 1, write_ptr);
+
+    fwrite(Fr_q.longVal, Fr_N64*8, 1, write_ptr);
+
+    u32 nVars = _circuit.NVars;
+    fwrite(&nVars, 4, 1, write_ptr);
+
     FrElement v;
 
     u8 buffOut[256];
@@ -162,11 +175,10 @@ bool hasEnding (std::string const &fullString, std::string const &ending) {
 }
 
 int main(int argc, char *argv[]) {
-    Fr_init();
     if (argc!=3) {
         std::string cl = argv[0];
         std::string base_filename = cl.substr(cl.find_last_of("/\\") + 1);
-        std::cout << "Usage: " << base_filename << " <input.<bin|json>> <output.<bin|json>>\n";
+        std::cout << "Usage: " << base_filename << " <input.<bin|json>> <output.<wtns|json>>\n";
     } else {
 
         // open output
@@ -188,7 +200,7 @@ int main(int argc, char *argv[]) {
 
         std::string outfilename = argv[2];
 
-        if (hasEnding(outfilename, std::string(".bin"))) {
+        if (hasEnding(outfilename, std::string(".wtns"))) {
             writeOutBin(ctx, outfilename);
         } else if (hasEnding(outfilename, std::string(".json"))) {
             writeOutJson(ctx, outfilename);

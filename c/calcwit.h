@@ -2,7 +2,7 @@
 #define CIRCOM_CALCWIT_H
 
 #include "circom.h"
-#include "fr.h"
+#include "fr.hpp"
 #include <mutex>
 #include <condition_variable>
 

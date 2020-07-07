@@ -3,7 +3,7 @@
 
 #include <gmp.h>
 #include <stdint.h>
-#include "fr.h"
+#include "fr.hpp"
 
 class Circom_CalcWit;
 typedef unsigned long long u64;

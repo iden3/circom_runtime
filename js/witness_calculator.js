@@ -126,19 +126,23 @@ class WitnessCalculator {
         this.instance.exports.init((this.sanityCheck || sanityCheck) ? 1 : 0);
         const pSigOffset = this.allocInt();
         const pFr = this.allocFr();
-        for (let k in input) {
+        const keys = Object.keys(input);
+        keys.forEach( (k) => {
             const h = utils.fnvHash(k);
             const hMSB = parseInt(h.slice(0,8), 16);
             const hLSB = parseInt(h.slice(8,16), 16);
-            this.instance.exports.getSignalOffset32(pSigOffset, 0, hMSB, hLSB);
+            try {
+                this.instance.exports.getSignalOffset32(pSigOffset, 0, hMSB, hLSB);
+            } catch (err) {
+                throw new Error(`Signal ${k} is not an input of the circuit.`);
+            }
             const sigOffset = this.getInt(pSigOffset);
             const fArr = utils.flatArray(input[k]);
             for (let i=0; i<fArr.length; i++) {
                 this.setFr(pFr, fArr[i]);
                 this.instance.exports.setSignal(0, 0, sigOffset + i, pFr);
             }
-        }
-
+        });
     }
 
     async calculateWitness(input, sanityCheck) {
@@ -170,7 +174,7 @@ class WitnessCalculator {
         self.i32[0] = old0;
 
         const buff = self.memory.buffer.slice(pWitnessBuffer, pWitnessBuffer + (self.NVars * self.n64 * 8));
-        return buff;
+        return new Uint8Array(buff);
     }
 
     allocInt() {
