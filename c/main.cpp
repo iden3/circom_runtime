@@ -120,10 +120,21 @@ void writeOutBin(Circom_CalcWit *ctx, std::string filename) {
 
     fwrite("wtns", 4, 1, write_ptr);
 
-    u32 version = 1;
+    u32 version = 2;
     fwrite(&version, 4, 1, write_ptr);
 
+    u32 nSections = 2;
+    fwrite(&nSections, 4, 1, write_ptr);
+
+    // Header
+    u32 idSection1 = 1;
+    fwrite(&idSection1, 4, 1, write_ptr);
+
     u32 n8 = Fr_N64*8;
+
+    u64 idSection1length = 8 + n8;
+    fwrite(&idSection1length, 8, 1, write_ptr);
+
     fwrite(&n8, 4, 1, write_ptr);
 
     fwrite(Fr_q.longVal, Fr_N64*8, 1, write_ptr);
@@ -131,11 +142,17 @@ void writeOutBin(Circom_CalcWit *ctx, std::string filename) {
     u32 nVars = _circuit.NVars;
     fwrite(&nVars, 4, 1, write_ptr);
 
+
+    // Data
+    u32 idSection2 = 2;
+    fwrite(&idSection2, 4, 1, write_ptr);
+
+    u64 idSection2length = n8*_circuit.NVars;
+    fwrite(&idSection2length, 8, 1, write_ptr);
+
     FrElement v;
 
-    u8 buffOut[256];
     for (int i=0;i<_circuit.NVars;i++) {
-        size_t  size=256;
         ctx->getWitness(i, &v);
         Fr_toLongNormal(&v);
         fwrite(v.longVal, Fr_N64*8, 1, write_ptr);
