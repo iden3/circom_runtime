@@ -6,6 +6,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <nlohmann/json.hpp>
@@ -20,6 +22,103 @@ Circom_Circuit *circuit;
 
 #define handle_error(msg) \
            do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+#define SHMEM_WITNESS_KEY (123456)
+
+// assumptions 
+// 1) There is only one key assigned for shared memory. This means
+//      that only one witness can be computed and used at a time. If several witness
+//      are computed before calling the prover, witness memory will be overwritten.
+// 2) Prover is responsible for releasing memory once is done with witness
+// 
+// File format:
+// Type     : 4B (wshm)
+// Version  : 4B
+// N Section : 4B
+// HDR1     : 12B
+// N8       : 4B
+// Fr       : N8 B
+// NVars    : 4B
+// HDR2     : 12B
+// ShmemKey : 4B
+// Status   : 4B  (0:OK, 0xFFFF: KO)
+// ShmemID  : 4B
+void writeOutShmem(Circom_CalcWit *ctx, std::string filename) {
+    FILE *write_ptr;
+    u64 *shbuf;
+    u32 shmid, status = 0;
+
+    write_ptr = fopen(filename.c_str(),"wb");
+
+    fwrite("wshm", 4, 1, write_ptr);
+
+    u32 version = 2;
+    fwrite(&version, 4, 1, write_ptr);
+
+    u32 nSections = 2;
+    fwrite(&nSections, 4, 1, write_ptr);
+
+    // Header
+    u32 idSection1 = 1;
+    fwrite(&idSection1, 4, 1, write_ptr);
+
+    u32 n8 = Fr_N64*8;
+
+    u64 idSection1length = 8 + n8;
+    fwrite(&idSection1length, 8, 1, write_ptr);
+
+    fwrite(&n8, 4, 1, write_ptr);
+
+    fwrite(Fr_q.longVal, Fr_N64*8, 1, write_ptr);
+
+    u32 nVars = _circuit.NVars;
+    fwrite(&nVars, 4, 1, write_ptr);
+
+    // Data
+    u32 idSection2 = 2;
+    fwrite(&idSection2, 4, 1, write_ptr);
+
+    u64 idSection2length = n8*_circuit.NVars;
+    fwrite(&idSection2length, 8, 1, write_ptr);
+
+
+    // generate key
+    key_t key = SHMEM_WITNESS_KEY;
+    fwrite(&key, sizeof(key_t), 1, write_ptr);
+ 
+    // Setup shared memory
+    if ((shmid = shmget(key, _circuit.NVars * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0) {
+       // preallocated shared memory segment is too small => Retrieve id by accesing old segment
+       // Delete old segment and create new with corret size
+       shmid = shmget(key, 4, IPC_CREAT | 0666);
+       shmctl(shmid, IPC_RMID, NULL);
+       if ((shmid = shmget(key, _circuit.NVars * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0){
+         status = -1;
+         fwrite(&status, sizeof(status), 1, write_ptr);
+         fclose(write_ptr);
+         return ;
+      }
+    }
+
+    // Attach shared memory
+    if ((shbuf = (u64 *)shmat(shmid, NULL, 0)) == (u64 *) -1) {
+      status = -1;
+      fwrite(&status, sizeof(status), 1, write_ptr);
+      fclose(write_ptr);
+      return;
+    }
+    fwrite(&status, sizeof(status), 1, write_ptr);
+
+    fwrite(&shmid, sizeof(u32), 1, write_ptr);
+    fclose(write_ptr);
+
+    FrElement v;
+    for (int i=0;i<_circuit.NVars;i++) {
+        ctx->getWitness(i, &v);
+        Fr_toLongNormal(&v);
+        memcpy(&shbuf[i*Fr_N64], v.longVal, Fr_N64*sizeof(u64));
+    }
+}
 
 void loadBin(Circom_CalcWit *ctx, std::string filename) {
     int fd;
@@ -239,7 +338,7 @@ int main(int argc, char *argv[]) {
     if (argc!=3) {
         std::string cl = argv[0];
         std::string base_filename = cl.substr(cl.find_last_of("/\\") + 1);
-        std::cout << "Usage: " << base_filename << " <input.<bin|json>> <output.<wtns|json>>\n";
+        std::cout << "Usage: " << base_filename << " <input.<bin|json>> <output.<wtns|json|wshm>>\n";
     } else {
 
         std::string datFileName = argv[0];
@@ -270,6 +369,8 @@ int main(int argc, char *argv[]) {
             writeOutBin(ctx, outfilename);
         } else if (hasEnding(outfilename, std::string(".json"))) {
             writeOutJson(ctx, outfilename);
+        } else if (hasEnding(outfilename, std::string(".wshm"))) {
+            writeOutShmem(ctx, outfilename);
         } else {
             handle_error("Invalid output extension (.bin / .json)");
         }
