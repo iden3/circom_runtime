@@ -1,6 +1,6 @@
 {
   "name": "circom_runtime",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Circom runtime",
   "main": "index.js",
   "scripts": {
