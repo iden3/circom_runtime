@@ -13,17 +13,17 @@ typedef uint8_t u8;
 typedef int Circom_Size;
 typedef Circom_Size *Circom_Sizes;
 
-struct Circom_HashEntry {
+struct __attribute__((__packed__)) Circom_HashEntry {
     u64 hash;
     int pos;
 };
 typedef Circom_HashEntry *Circom_HashTable;
 
-typedef enum  { _typeSignal, _typeComponent} Circom_EntryType;
+typedef enum  { _typeSignal=0, _typeComponent=1} Circom_EntryType;
 
-struct Circom_ComponentEntry {
-    int offset;
+struct __attribute__((__packed__)) Circom_ComponentEntry {
     Circom_Sizes sizes;
+    uint32_t offset;
     Circom_EntryType type;
 };
 typedef Circom_ComponentEntry *Circom_ComponentEntries;
@@ -34,25 +34,25 @@ struct Circom_Component {
     Circom_HashTable hashTable;
     Circom_ComponentEntries entries;
     Circom_ComponentFunction fn;
-    int inputSignals;
-    bool newThread;
+    uint32_t inputSignals;
+    uint32_t newThread;
 };
 
-class Circom_Circuit {
-public:
-    int NSignals;
-    int NComponents;
-    int NInputs;
-    int NOutputs;
-    int NVars;
+struct __attribute__((__packed__)) Circom_Circuit {
     int *wit2sig;
     Circom_Component *components;
     u32 *mapIsInput;
     PFrElement constants;
     const char *P;
+    Circom_ComponentEntry *componentEntries;
+    int NSignals;
+    int NComponents;
+    int NInputs;
+    int NOutputs;
+    int NVars;
+    int NComponentEntries;
 };
 
 #define BITMAP_ISSET(m, b) (m[b>>5] & (1 << (b&0x1F)))
-extern struct Circom_Circuit _circuit;
-
+extern Circom_ComponentFunction _functionTable[];
 #endif

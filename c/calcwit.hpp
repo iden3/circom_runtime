@@ -1,7 +1,7 @@
 #ifndef CIRCOM_CALCWIT_H
 #define CIRCOM_CALCWIT_H
 
-#include "circom.h"
+#include "circom.hpp"
 #include "fr.hpp"
 #include <mutex>
 #include <condition_variable>

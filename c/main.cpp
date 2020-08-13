@@ -11,9 +11,12 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-#include "calcwit.h"
-#include "circom.h"
-#include "utils.h"
+#include "calcwit.hpp"
+#include "circom.hpp"
+#include "utils.hpp"
+
+Circom_Circuit *circuit;
+
 
 #define handle_error(msg) \
            do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -41,13 +44,13 @@ void loadBin(Circom_CalcWit *ctx, std::string filename) {
 
     FrElement v;
     u8 *p = in;
-    for (int i=0; i<_circuit.NInputs; i++) {
+    for (int i=0; i<circuit->NInputs; i++) {
         v.type = Fr_LONG;
         for (int j=0; j<Fr_N64; j++) {
             v.longVal[j] = *(u64 *)p;
         }
         p += 8;
-        ctx->setSignal(0, 0, _circuit.wit2sig[1 + _circuit.NOutputs + i], &v);
+        ctx->setSignal(0, 0, circuit->wit2sig[1 + circuit->NOutputs + i], &v);
     }
 }
 
@@ -139,7 +142,7 @@ void writeOutBin(Circom_CalcWit *ctx, std::string filename) {
 
     fwrite(Fr_q.longVal, Fr_N64*8, 1, write_ptr);
 
-    u32 nVars = _circuit.NVars;
+    u32 nVars = circuit->NVars;
     fwrite(&nVars, 4, 1, write_ptr);
 
 
@@ -147,12 +150,12 @@ void writeOutBin(Circom_CalcWit *ctx, std::string filename) {
     u32 idSection2 = 2;
     fwrite(&idSection2, 4, 1, write_ptr);
 
-    u64 idSection2length = n8*_circuit.NVars;
+    u64 idSection2length = n8*circuit->NVars;
     fwrite(&idSection2length, 8, 1, write_ptr);
 
     FrElement v;
 
-    for (int i=0;i<_circuit.NVars;i++) {
+    for (int i=0;i<circuit->NVars;i++) {
         ctx->getWitness(i, &v);
         Fr_toLongNormal(&v);
         fwrite(v.longVal, Fr_N64*8, 1, write_ptr);
@@ -171,7 +174,7 @@ void writeOutJson(Circom_CalcWit *ctx, std::string filename) {
 
     FrElement v;
 
-    for (int i=0;i<_circuit.NVars;i++) {
+    for (int i=0;i<circuit->NVars;i++) {
         ctx->getWitness(i, &v);
         char *pcV = Fr_element2str(&v);
         std::string sV = std::string(pcV);
@@ -191,6 +194,47 @@ bool hasEnding (std::string const &fullString, std::string const &ending) {
     }
 }
 
+#define ADJ_P(a) *((void **)&a) = (void *)(((char *)circuit)+ (uint64_t)(a))
+
+Circom_Circuit *loadCircuit(std::string const &datFileName) {
+    Circom_Circuit *circuit;
+
+    int fd;
+    struct stat sb;
+
+    fd = open(datFileName.c_str(), O_RDONLY);
+    if (fd == -1) {
+        std::cout << ".dat file not found: " << datFileName << "\n";
+        throw std::system_error(errno, std::generic_category(), "open");
+    }
+
+    if (fstat(fd, &sb) == -1) {         /* To obtain file size */
+        throw std::system_error(errno, std::generic_category(), "fstat");
+    }
+
+    circuit = (Circom_Circuit *)mmap(NULL, sb.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    close(fd);
+
+    ADJ_P(circuit->wit2sig);
+    ADJ_P(circuit->components);
+    ADJ_P(circuit->mapIsInput);
+    ADJ_P(circuit->constants);
+    ADJ_P(circuit->P);
+    ADJ_P(circuit->componentEntries);
+
+    for (int i=0; i<circuit->NComponents; i++) {
+        ADJ_P(circuit->components[i].hashTable);
+        ADJ_P(circuit->components[i].entries);
+        circuit->components[i].fn = _functionTable[  (uint64_t)circuit->components[i].fn];
+    }
+
+    for (int i=0; i<circuit->NComponentEntries; i++) {
+        ADJ_P(circuit->componentEntries[i].sizes);
+    }
+
+    return circuit;
+}
+
 int main(int argc, char *argv[]) {
     if (argc!=3) {
         std::string cl = argv[0];
@@ -198,8 +242,13 @@ int main(int argc, char *argv[]) {
         std::cout << "Usage: " << base_filename << " <input.<bin|json>> <output.<wtns|json>>\n";
     } else {
 
+        std::string datFileName = argv[0];
+        datFileName += ".dat";
+
+        circuit = loadCircuit(datFileName);
+
         // open output
-        Circom_CalcWit *ctx = new Circom_CalcWit(&_circuit);
+        Circom_CalcWit *ctx = new Circom_CalcWit(circuit);
 
         std::string infilename = argv[1];
 

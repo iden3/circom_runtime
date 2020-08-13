@@ -7,8 +7,8 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <thread>
-#include "calcwit.h"
-#include "utils.h"
+#include "calcwit.hpp"
+#include "utils.hpp"
 
 Circom_CalcWit::Circom_CalcWit(Circom_Circuit *aCircuit) {
     circuit = aCircuit;

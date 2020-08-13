@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <stdlib.h>
 
-#include "utils.h"
+#include "utils.hpp"
 
 std::string int_to_hex( u64 i )
 {
