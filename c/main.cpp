@@ -25,12 +25,12 @@ Circom_Circuit *circuit;
 
 #define SHMEM_WITNESS_KEY (123456)
 
-// assumptions 
+// assumptions
 // 1) There is only one key assigned for shared memory. This means
 //      that only one witness can be computed and used at a time. If several witness
 //      are computed before calling the prover, witness memory will be overwritten.
 // 2) Prover is responsible for releasing memory once is done with witness
-// 
+//
 // File format:
 // Type     : 4B (wshm)
 // Version  : 4B
@@ -71,28 +71,28 @@ void writeOutShmem(Circom_CalcWit *ctx, std::string filename) {
 
     fwrite(Fr_q.longVal, Fr_N64*8, 1, write_ptr);
 
-    u32 nVars = _circuit.NVars;
+    u32 nVars = circuit->NVars;
     fwrite(&nVars, 4, 1, write_ptr);
 
     // Data
     u32 idSection2 = 2;
     fwrite(&idSection2, 4, 1, write_ptr);
 
-    u64 idSection2length = n8*_circuit.NVars;
+    u64 idSection2length = n8*circuit->NVars;
     fwrite(&idSection2length, 8, 1, write_ptr);
 
 
     // generate key
     key_t key = SHMEM_WITNESS_KEY;
     fwrite(&key, sizeof(key_t), 1, write_ptr);
- 
+
     // Setup shared memory
-    if ((shmid = shmget(key, _circuit.NVars * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0) {
+    if ((shmid = shmget(key, circuit->NVars * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0) {
        // preallocated shared memory segment is too small => Retrieve id by accesing old segment
        // Delete old segment and create new with corret size
        shmid = shmget(key, 4, IPC_CREAT | 0666);
        shmctl(shmid, IPC_RMID, NULL);
-       if ((shmid = shmget(key, _circuit.NVars * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0){
+       if ((shmid = shmget(key, circuit->NVars * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0){
          status = -1;
          fwrite(&status, sizeof(status), 1, write_ptr);
          fclose(write_ptr);
@@ -113,7 +113,7 @@ void writeOutShmem(Circom_CalcWit *ctx, std::string filename) {
     fclose(write_ptr);
 
     FrElement v;
-    for (int i=0;i<_circuit.NVars;i++) {
+    for (int i=0;i<circuit->NVars;i++) {
         ctx->getWitness(i, &v);
         Fr_toLongNormal(&v);
         memcpy(&shbuf[i*Fr_N64], v.longVal, Fr_N64*sizeof(u64));
