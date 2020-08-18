@@ -26,7 +26,7 @@ module.exports = async function builder(code, options) {
 
     options = options || {};
 
-    const memory = new WebAssembly.Memory({initial:20000});
+    const memory = new WebAssembly.Memory({initial:32767});
     const wasmModule = await WebAssembly.compile(code);
 
     let wc;
