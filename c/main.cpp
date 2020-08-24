@@ -115,7 +115,7 @@ void writeOutShmem(Circom_CalcWit *ctx, std::string filename) {
     FrElement v;
     for (int i=0;i<circuit->NVars;i++) {
         ctx->getWitness(i, &v);
-        Fr_toLongNormal(&v);
+        Fr_toLongNormal(&v, &v);
         memcpy(&shbuf[i*Fr_N64], v.longVal, Fr_N64*sizeof(u64));
     }
 }
@@ -256,7 +256,7 @@ void writeOutBin(Circom_CalcWit *ctx, std::string filename) {
 
     for (int i=0;i<circuit->NVars;i++) {
         ctx->getWitness(i, &v);
-        Fr_toLongNormal(&v);
+        Fr_toLongNormal(&v, &v);
         fwrite(v.longVal, Fr_N64*8, 1, write_ptr);
     }
     fclose(write_ptr);
@@ -296,6 +296,7 @@ bool hasEnding (std::string const &fullString, std::string const &ending) {
 #define ADJ_P(a) *((void **)&a) = (void *)(((char *)circuit)+ (uint64_t)(a))
 
 Circom_Circuit *loadCircuit(std::string const &datFileName) {
+    Circom_Circuit *circuitF;
     Circom_Circuit *circuit;
 
     int fd;
@@ -311,8 +312,13 @@ Circom_Circuit *loadCircuit(std::string const &datFileName) {
         throw std::system_error(errno, std::generic_category(), "fstat");
     }
 
-    circuit = (Circom_Circuit *)mmap(NULL, sb.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+    circuitF = (Circom_Circuit *)mmap(NULL, sb.st_size, PROT_READ , MAP_PRIVATE, fd, 0);
     close(fd);
+
+    circuit = (Circom_Circuit *)malloc(sb.st_size);
+    memcpy((void *)circuit, (void *)circuitF, sb.st_size);
+
+    munmap(circuitF, sb.st_size);
 
     ADJ_P(circuit->wit2sig);
     ADJ_P(circuit->components);

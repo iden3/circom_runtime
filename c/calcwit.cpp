@@ -197,6 +197,18 @@ void Circom_CalcWit::checkConstraint(int currentComponentIdx, PFrElement value1,
 #endif
 }
 
+void Circom_CalcWit::checkAssert(int currentComponentIdx, PFrElement value1, char const *err) {
+#ifdef SANITY_CHECK
+    FrElement tmp;
+    if (!Fr_isTrue(value1)) {
+        char *pcV1 = Fr_element2str(value1);
+        // throw std::runtime_error(std::to_string(currentComponentIdx) + std::string(", Constraint doesn't match, ") + err + ". " + sV1 + " != " + sV2 );
+        fprintf(stderr, "Assert fail: %s", err);
+        free(pcV1);
+        assert(false);
+    }
+#endif
+}
 
 void Circom_CalcWit::triggerComponent(int newCIdx) {
     //int oldCIdx = cIdx;

@@ -40,6 +40,8 @@ module.exports = async function builder(code, options) {
                 let errStr;
                 if (code == 7) {
                     errStr=p2str(pstr) + " " + wc.getFr(b).toString() + " != " + wc.getFr(c).toString() + " " +p2str(d);
+                } else if (code == 9) {
+                    errStr=p2str(pstr) + " " + wc.getFr(b).toString() + " " +p2str(c);
                 } else {
                     errStr=p2str(pstr)+ " " + a + " " + b + " " + c + " " + d;
                 }
