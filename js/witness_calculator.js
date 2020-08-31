@@ -42,6 +42,8 @@ module.exports = async function builder(code, options) {
                     errStr=p2str(pstr) + " " + wc.getFr(b).toString() + " != " + wc.getFr(c).toString() + " " +p2str(d);
                 } else if (code == 9) {
                     errStr=p2str(pstr) + " " + wc.getFr(b).toString() + " " +p2str(c);
+                } else if ((code == 5)&&(options.sym)) {
+                    errStr=p2str(pstr)+ " " + options.sym.labelIdx2Name[c];
                 } else {
                     errStr=p2str(pstr)+ " " + a + " " + b + " " + c + " " + d;
                 }
