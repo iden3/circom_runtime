@@ -26,7 +26,22 @@ module.exports = async function builder(code, options) {
 
     options = options || {};
 
-    const memory = new WebAssembly.Memory({initial:32767});
+    let memorySize = 32767;
+    let memory;
+    let memoryAllocated = false;
+    while (!memoryAllocated){
+        try{
+            memory = new WebAssembly.Memory({initial:memorySize});
+            memoryAllocated = true;
+        } catch(err){
+            if(memorySize === 1){
+                throw err;
+            }
+            console.warn("Could not allocate " + memorySize * 1024 * 64 + " bytes. This may cause severe instability. Trying with " + memorySize * 1024 * 64 / 2 + " bytes");
+            memorySize = Math.floor(memorySize/2);
+        }
+    }
+
     const wasmModule = await WebAssembly.compile(code);
 
     let wc;
