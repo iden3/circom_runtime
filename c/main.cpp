@@ -249,7 +249,7 @@ void writeOutBin(Circom_CalcWit *ctx, std::string filename) {
     u32 idSection2 = 2;
     fwrite(&idSection2, 4, 1, write_ptr);
 
-    u64 idSection2length = n8*circuit->NVars;
+    u64 idSection2length = (u64)n8*(u64)circuit->NVars;
     fwrite(&idSection2length, 8, 1, write_ptr);
 
     FrElement v;
