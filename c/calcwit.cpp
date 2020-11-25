@@ -143,6 +143,12 @@ void Circom_CalcWit::getSignal(int currentComponentIdx, int cIdx, int sIdx, PFrE
     */
 }
 
+void Circom_CalcWit::multiGetSignal(int currentComponentIdx, int cIdx, int sIdx, PFrElement value, int n) {
+    for (int i=0; i<n; i++) {
+        getSignal(currentComponentIdx, cIdx, sIdx+i, value + i);
+    }
+}
+
 void Circom_CalcWit::finished(int cIdx) {
     {
         std::lock_guard<std::mutex> lk(mutexes[cIdx % NMUTEXES]);

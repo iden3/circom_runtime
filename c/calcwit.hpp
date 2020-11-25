@@ -47,6 +47,7 @@ public:
 
     void getSignal(int currentComponentIdx, int cIdx, int sIdx, PFrElement value);
     void setSignal(int currentComponentIdx, int cIdx, int sIdx, PFrElement value);
+    void multiGetSignal(int currentComponentIdx, int cIdx, int sIdx, PFrElement value, int n);
 
     void checkConstraint(int currentComponentIdx, PFrElement value1, PFrElement value2, char const *err);
     void checkAssert(int currentComponentIdx, PFrElement value1, char const *err);
