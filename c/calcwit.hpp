@@ -10,9 +10,7 @@
 
 class Circom_CalcWit {
 
-#ifdef SANITY_CHECK
     bool *signalAssigned;
-#endif
 
     // componentStatus -> For each component
     // >0 Signals required to trigger

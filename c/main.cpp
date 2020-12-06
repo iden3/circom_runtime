@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <nlohmann/json.hpp>
-#include <omp.h>
+#include <sys/time.h>
 using json = nlohmann::json;
 
 #include "calcwit.hpp"
@@ -113,14 +113,16 @@ void writeOutShmem(Circom_CalcWit *ctx, std::string filename) {
     fwrite(&shmid, sizeof(u32), 1, write_ptr);
     fclose(write_ptr);
 
+
     #pragma omp parallel for
-    for (int i=0;i<circuit->NVars;i++) {
-        FrElement v;
+    for (int i=0; i<circuit->NVars;i++) {
+    	FrElement v;
         ctx->getWitness(i, &v);
         Fr_toLongNormal(&v, &v);
         memcpy(&shbuf[i*Fr_N64], v.longVal, Fr_N64*sizeof(u64));
     }
 }
+
 
 void loadBin(Circom_CalcWit *ctx, std::string filename) {
     int fd;
@@ -193,12 +195,13 @@ void itFunc(Circom_CalcWit *ctx, int o, json val) {
     ctx->setSignal(0, 0, o, &v);
 }
 
-
 void loadJson(Circom_CalcWit *ctx, std::string filename) {
     std::ifstream inStream(filename);
     json j;
     inStream >> j;
 
+    u64 nItems = j.size();
+    printf("Items : %llu\n",nItems);
     for (json::iterator it = j.begin(); it != j.end(); ++it) {
 //      std::cout << it.key() << " => " << it.value() << '\n';
       u64 h = fnv1a(it.key());
@@ -213,7 +216,6 @@ void loadJson(Circom_CalcWit *ctx, std::string filename) {
       Circom_Sizes sizes = ctx->getSignalSizes(0, h);
       iterateArr(ctx, o, sizes, it.value(), itFunc);
     }
-
 }
 
 
@@ -349,6 +351,12 @@ int main(int argc, char *argv[]) {
         std::cout << "Usage: " << base_filename << " <input.<bin|json>> <output.<wtns|json|wshm>>\n";
     } else {
 
+        struct timeval begin, end;
+        long seconds, microseconds; 
+        double elapsed;
+
+	gettimeofday(&begin,0);
+
         std::string datFileName = argv[0];
         datFileName += ".dat";
 
@@ -358,6 +366,12 @@ int main(int argc, char *argv[]) {
         Circom_CalcWit *ctx = new Circom_CalcWit(circuit);
 
         std::string infilename = argv[1];
+	    gettimeofday(&end,0);
+            seconds = end.tv_sec - begin.tv_sec;
+            microseconds = end.tv_usec - begin.tv_usec;
+            elapsed = seconds + microseconds*1e-6;
+
+            printf("Up to loadJson %.20f\n", elapsed);
 
         if (hasEnding(infilename, std::string(".bin"))) {
             loadBin(ctx, infilename);
@@ -374,16 +388,34 @@ int main(int argc, char *argv[]) {
         std::string outfilename = argv[2];
 
         if (hasEnding(outfilename, std::string(".wtns"))) {
+	    gettimeofday(&end,0);
+            seconds = end.tv_sec - begin.tv_sec;
+            microseconds = end.tv_usec - begin.tv_usec;
+            elapsed = seconds + microseconds*1e-6;
+
+            printf("Up to WriteWtns %.20f\n", elapsed);
             writeOutBin(ctx, outfilename);
         } else if (hasEnding(outfilename, std::string(".json"))) {
             writeOutJson(ctx, outfilename);
         } else if (hasEnding(outfilename, std::string(".wshm"))) {
+	    gettimeofday(&end,0);
+            seconds = end.tv_sec - begin.tv_sec;
+            microseconds = end.tv_usec - begin.tv_usec;
+            elapsed = seconds + microseconds*1e-6;
+
+            printf("Up to WriteShmem %.20f\n", elapsed);
             writeOutShmem(ctx, outfilename);
         } else {
             handle_error("Invalid output extension (.bin / .json)");
         }
 
         delete ctx;
+	    gettimeofday(&end,0);
+            seconds = end.tv_sec - begin.tv_sec;
+            microseconds = end.tv_usec - begin.tv_usec;
+            elapsed = seconds + microseconds*1e-6;
+
+            printf("Total %.20f\n", elapsed);
         exit(EXIT_SUCCESS);
     }
 }

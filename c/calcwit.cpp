@@ -13,10 +13,8 @@
 Circom_CalcWit::Circom_CalcWit(Circom_Circuit *aCircuit) {
     circuit = aCircuit;
 
-#ifdef SANITY_CHECK
     signalAssigned = new bool[circuit->NSignals];
     signalAssigned[0] = true;
-#endif
 
     mutexes = new std::mutex[NMUTEXES];
     cvs = new std::condition_variable[NMUTEXES];
@@ -32,9 +30,7 @@ Circom_CalcWit::Circom_CalcWit(Circom_Circuit *aCircuit) {
 
 Circom_CalcWit::~Circom_CalcWit() {
 
-#ifdef SANITY_CHECK
     delete signalAssigned;
-#endif
 
     delete[] cvs;
     delete[] mutexes;
@@ -57,13 +53,12 @@ void Circom_CalcWit::syncPrintf(const char *format, ...) {
 
 void Circom_CalcWit::reset() {
 
-#ifdef SANITY_CHECK
-    for (int i=1; i<circuit->NComponents; i++) signalAssigned[i] = false;
-#endif
-
+    #pragma omp parallel for
     for (int i=0; i<circuit->NComponents; i++) {
+	signalAssigned[i] = false;
         inputSignalsToTrigger[i] = circuit->components[i].inputSignals;
     }
+    
     for (int i=0; i<circuit->NComponents; i++) {
         if (inputSignalsToTrigger[i] == 0) triggerComponent(i);
     }
@@ -122,19 +117,17 @@ Circom_Sizes Circom_CalcWit::getSignalSizes(int cIdx, u64 hash) {
 void Circom_CalcWit::getSignal(int currentComponentIdx, int cIdx, int sIdx, PFrElement value) {
     // syncPrintf("getSignal: %d\n", sIdx);
     if ((circuit->components[cIdx].newThread)&&(currentComponentIdx != cIdx)) {
-        std::unique_lock<std::mutex> lk(mutexes[cIdx % NMUTEXES]);
-        while (inputSignalsToTrigger[cIdx] != -1) {
-            cvs[cIdx % NMUTEXES].wait(lk);
+        std::unique_lock<std::mutex> lk(mutexes[sIdx % NMUTEXES]);
+        while (!signalAssigned[sIdx]) {
+            cvs[sIdx % NMUTEXES].wait(lk);
         }
         // cvs[cIdx % NMUTEXES].wait(lk, [&]{return inputSignalsToTrigger[cIdx] == -1;});
         lk.unlock();
     }
-#ifdef SANITY_CHECK
     if (signalAssigned[sIdx] == false) {
         fprintf(stderr, "Accessing a not assigned signal: %d\n", sIdx);
         assert(false);
     }
-#endif
     Fr_copy(value, signalValues + sIdx);
     /*
     char *valueStr = mpz_get_str(0, 10, *value);
@@ -161,13 +154,11 @@ void Circom_CalcWit::finished(int cIdx) {
 void Circom_CalcWit::setSignal(int currentComponentIdx, int cIdx, int sIdx, PFrElement value) {
     // syncPrintf("setSignal: %d\n", sIdx);
 
-#ifdef SANITY_CHECK
     if (signalAssigned[sIdx] == true) {
         fprintf(stderr, "Signal assigned twice: %d\n", sIdx);
         assert(false);
     }
     signalAssigned[sIdx] = true;
-#endif
     // Log assignement
     /*
     char *valueStr = mpz_get_str(0, 10, *value);
@@ -184,6 +175,10 @@ void Circom_CalcWit::setSignal(int currentComponentIdx, int cIdx, int sIdx, PFrE
             assert(false);
         }
     }
+    if ((circuit->components[currentComponentIdx].newThread)&&(currentComponentIdx == cIdx)) {
+    // syncPrintf("Finished: %d\n", cIdx);
+       cvs[sIdx % NMUTEXES].notify_all();
+    } 
 
 }
 
