@@ -51,6 +51,7 @@ struct __attribute__((__packed__)) Circom_Circuit {
     int NOutputs;
     int NVars;
     int NComponentEntries;
+    int NPublic;
 };
 
 #define BITMAP_ISSET(m, b) (m[b>>5] & (1 << (b&0x1F)))

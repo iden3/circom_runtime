@@ -52,10 +52,13 @@ void Circom_CalcWit::syncPrintf(const char *format, ...) {
 }
 
 void Circom_CalcWit::reset() {
+    #pragma omp paallel for
+    for (int i=1; i<circuit->NSignals; i++) {
+        signalAssigned[i] = false;
+    }
 
     #pragma omp parallel for
     for (int i=0; i<circuit->NComponents; i++) {
-	signalAssigned[i] = false;
         inputSignalsToTrigger[i] = circuit->components[i].inputSignals;
     }
     
