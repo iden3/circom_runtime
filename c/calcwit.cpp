@@ -161,7 +161,6 @@ void Circom_CalcWit::setSignal(int currentComponentIdx, int cIdx, int sIdx, PFrE
         fprintf(stderr, "Signal assigned twice: %d\n", sIdx);
         assert(false);
     }
-    signalAssigned[sIdx] = true;
     // Log assignement
     /*
     char *valueStr = mpz_get_str(0, 10, *value);
@@ -169,6 +168,7 @@ void Circom_CalcWit::setSignal(int currentComponentIdx, int cIdx, int sIdx, PFrE
     free(valueStr);
     */
     Fr_copy(signalValues + sIdx, value);
+    signalAssigned[sIdx] = true;
     if ( BITMAP_ISSET(circuit->mapIsInput, sIdx) ) {
         if (inputSignalsToTrigger[cIdx]>0) {
             inputSignalsToTrigger[cIdx]--;
