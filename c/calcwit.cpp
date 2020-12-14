@@ -52,16 +52,17 @@ void Circom_CalcWit::syncPrintf(const char *format, ...) {
 }
 
 void Circom_CalcWit::reset() {
-    #pragma omp paallel for
+
+    #pragma omp parallel for
     for (int i=1; i<circuit->NSignals; i++) {
         signalAssigned[i] = false;
     }
 
-    #pragma omp parallel for
+    #pragma omp paallel for
     for (int i=0; i<circuit->NComponents; i++) {
         inputSignalsToTrigger[i] = circuit->components[i].inputSignals;
     }
-    
+
     for (int i=0; i<circuit->NComponents; i++) {
         if (inputSignalsToTrigger[i] == 0) triggerComponent(i);
     }
@@ -118,13 +119,14 @@ Circom_Sizes Circom_CalcWit::getSignalSizes(int cIdx, u64 hash) {
 }
 
 void Circom_CalcWit::getSignal(int currentComponentIdx, int cIdx, int sIdx, PFrElement value) {
-    // syncPrintf("getSignal: %d\n", sIdx);
+    // char *s = Fr_element2str(value);
+    // syncPrintf("getSignal: %d %s\n", sIdx, s);
+    // delete s;
     if ((circuit->components[cIdx].newThread)&&(currentComponentIdx != cIdx)) {
-        std::unique_lock<std::mutex> lk(mutexes[sIdx % NMUTEXES]);
+        std::unique_lock<std::mutex> lk(mutexes[cIdx % NMUTEXES]);
         while (!signalAssigned[sIdx]) {
             cvs[sIdx % NMUTEXES].wait(lk);
         }
-        // cvs[cIdx % NMUTEXES].wait(lk, [&]{return inputSignalsToTrigger[cIdx] == -1;});
         lk.unlock();
     }
     if (signalAssigned[sIdx] == false) {
@@ -246,5 +248,88 @@ void Circom_CalcWit::join() {
     }
 
 }
+
+
+
+void Circom_CalcWit::iterateArr(int o, Circom_Sizes sizes, json jarr) {
+  if (!jarr.is_array()) {
+    assert((sizes[0] == 1)&&(sizes[1] == 0));
+    itFunc(o, jarr);
+  } else {
+    int n = sizes[0] / sizes[1];
+    for (int i=0; i<n; i++) {
+      iterateArr(o + i*sizes[1], sizes+1, jarr[i]);
+      if (isCanceled()) return;
+    }
+  }
+}
+
+
+void Circom_CalcWit::itFunc(int o, json val) {
+
+    FrElement v;
+
+    std::string s;
+
+    if (val.is_string()) {
+        s = val.get<std::string>();
+    } else if (val.is_number()) {
+
+        double vd = val.get<double>();
+        std::stringstream stream;
+        stream << std::fixed << std::setprecision(0) << vd;
+        s = stream.str();
+    } else {
+        throw new std::runtime_error("Invalid JSON type");
+    }
+
+    Fr_str2element (&v, s.c_str());
+
+    setSignal(0, 0, o, &v);
+}
+
+
+void Circom_CalcWit::calculateProve(void *wtns, json &input, std::function<bool()> _isCanceledCB) {
+    isCanceledCB = _isCanceledCB;
+    reset();
+    for (json::iterator it = input.begin(); it != input.end(); ++it) {
+//      std::cout << it.key() << " => " << it.value() << '\n';
+        u64 h = fnv1a(it.key());
+        int o;
+        try {
+            o = getSignalOffset(0, h);
+        } catch (std::runtime_error e) {
+            std::ostringstream errStrStream;
+            errStrStream << "Error loading variable: " << it.key() << "\n" << e.what();
+            throw new std::runtime_error(errStrStream.str());
+        }
+        Circom_Sizes sizes = getSignalSizes(0, h);
+        iterateArr(o, sizes, it.value());
+        if (isCanceled()) break;
+    }
+
+    join();
+
+    if (!isCanceled()) {
+
+        #pragma omp raw for
+        for (int i=0;i<circuit->NVars;i++) {
+            FrElement v;
+            getWitness(i, &v);
+            Fr_toLongNormal(&v, &v);
+            memcpy((uint8_t*)wtns + i*Fr_N64*8, v.longVal, Fr_N64*8);
+        }
+    }
+
+    if (isCanceled()) throw new std::runtime_error("Aborted");
+}
+
+void Circom_CalcWit::calculateProve(void *wtns, std::string &input, std::function<bool()> _isCanceledCB) {
+
+    json inputJson = json::parse(input, nullptr, false);
+    if (inputJson.is_discarded()) throw new std::runtime_error("JSonParseError");
+    calculateProve(wtns, inputJson, _isCanceledCB);
+}
+
 
 

@@ -5,6 +5,9 @@
 #include "fr.hpp"
 #include <mutex>
 #include <condition_variable>
+#include <functional>
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 #define NMUTEXES 128
 
@@ -29,9 +32,13 @@ class Circom_CalcWit {
     void calculateWitness(void *input, void *output);
 
     void syncPrintf(const char *format, ...);
+    bool isCanceled() { return isCanceledCB && isCanceledCB(); }
 
+    void itFunc(int o, json val);
+    void iterateArr(int o, Circom_Sizes sizes, json jarr);
 
 public:
+    std::function<bool()> isCanceledCB;
     Circom_Circuit *circuit;
 
 // Functions called by the circuit
@@ -65,6 +72,9 @@ public:
     }
 
     void reset();
+
+    void calculateProve(void *wtns, json &input, std::function<bool()> _isCanceledCB);
+    void calculateProve(void *wtns, std::string &input, std::function<bool()> _isCanceledCB);
 
 };
 
