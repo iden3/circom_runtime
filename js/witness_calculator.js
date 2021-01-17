@@ -17,12 +17,10 @@ limitations under the License.
 
 */
 
-const utils = require("./utils");
-const Scalar = require("ffjavascript").Scalar;
-const F1Field = require("ffjavascript").F1Field;
+import { flatArray, fnvHash } from "./utils.js";
+import { Scalar, F1Field } from "ffjavascript";
 
-
-module.exports = async function builder(code, options) {
+export default async function builder(code, options) {
 
     options = options || {};
 
@@ -147,7 +145,7 @@ class WitnessCalculator {
         const pFr = this.allocFr();
         const keys = Object.keys(input);
         keys.forEach( (k) => {
-            const h = utils.fnvHash(k);
+            const h = fnvHash(k);
             const hMSB = parseInt(h.slice(0,8), 16);
             const hLSB = parseInt(h.slice(8,16), 16);
             try {
@@ -156,7 +154,7 @@ class WitnessCalculator {
                 throw new Error(`Signal ${k} is not an input of the circuit.`);
             }
             const sigOffset = this.getInt(pSigOffset);
-            const fArr = utils.flatArray(input[k]);
+            const fArr = flatArray(input[k]);
             for (let i=0; i<fArr.length; i++) {
                 this.setFr(pFr, fArr[i]);
                 this.instance.exports.setSignal(0, 0, sigOffset + i, pFr);

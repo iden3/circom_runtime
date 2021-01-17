@@ -17,15 +17,17 @@ limitations under the License.
 
 */
 
-const fs = require("fs");
-const version = require("./package").version;
+import fs from "fs";
+const pkg = JSON.parse(fs.readFileSync("./package.json"));
+const version = pkg.version;
 
-const WitnessCalculatorBuilder = require("./js/witness_calculator.js");
-const utils = require("./js/utils.js");
+import WitnessCalculatorBuilder from "./js/witness_calculator.js";
+import { utils } from "ffjavascript";
+import yargs from "yargs";
 
 
 
-const argv = require("yargs")
+const argv = yargs
     .version(version)
     .usage("calcwit -w [wasm file] -i [input file JSON] -o [output ouput file file  .json|.bin]")
     .alias("o", "output")

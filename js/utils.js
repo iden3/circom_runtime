@@ -16,12 +16,9 @@ limitations under the License.
 
 */
 
-const fnv = require("fnv-plus");
+import fnv from "fnv-plus";
 
-module.exports.fnvHash = fnvHash;
-module.exports.flatArray = flatArray;
-
-function flatArray(a) {
+export function flatArray(a) {
     var res = [];
     fillArray(res, a);
     return res;
@@ -37,6 +34,6 @@ function flatArray(a) {
     }
 }
 
-function fnvHash(str) {
+export function fnvHash(str) {
     return fnv.hash(str, 64).hex();
 }
