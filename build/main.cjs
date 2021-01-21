@@ -1,4 +1,14 @@
-/* globals WebAssembly */
+'use strict';
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var fnv = require('fnv-plus');
+var ffjavascript = require('ffjavascript');
+
+function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+var fnv__default = /*#__PURE__*/_interopDefaultLegacy(fnv);
+
 /*
 
 Copyright 2020 0KIMS association.
@@ -17,10 +27,29 @@ limitations under the License.
 
 */
 
-import { flatArray, fnvHash } from "./utils.js";
-import { Scalar, F1Field } from "ffjavascript";
+function flatArray(a) {
+    var res = [];
+    fillArray(res, a);
+    return res;
 
-export default async function builder(code, options) {
+    function fillArray(res, a) {
+        if (Array.isArray(a)) {
+            for (let i=0; i<a.length; i++) {
+                fillArray(res, a[i]);
+            }
+        } else {
+            res.push(a);
+        }
+    }
+}
+
+function fnvHash(str) {
+    return fnv__default['default'].hash(str, 64).hex();
+}
+
+/* globals WebAssembly */
+
+async function builder(code, options) {
 
     options = options || {};
 
@@ -111,8 +140,7 @@ export default async function builder(code, options) {
 
         return String.fromCharCode.apply(null, bytes);
     }
-};
-
+}
 class WitnessCalculator {
     constructor(memory, instance, sanityCheck) {
         this.memory = memory;
@@ -127,14 +155,14 @@ class WitnessCalculator {
             arr[this.n32-1-i] = this.i32[(pRawPrime >> 2) + i];
         }
 
-        this.prime = Scalar.fromArray(arr, 0x100000000);
+        this.prime = ffjavascript.Scalar.fromArray(arr, 0x100000000);
 
-        this.Fr = new F1Field(this.prime);
+        this.Fr = new ffjavascript.F1Field(this.prime);
 
-        this.mask32 = Scalar.fromString("FFFFFFFF", 16);
+        this.mask32 = ffjavascript.Scalar.fromString("FFFFFFFF", 16);
         this.NVars = this.instance.exports.getNVars();
         this.n64 = Math.floor((this.Fr.bitLength - 1) / 64)+1;
-        this.R = this.Fr.e( Scalar.shiftLeft(1 , this.n64*64));
+        this.R = this.Fr.e( ffjavascript.Scalar.shiftLeft(1 , this.n64*64));
         this.RInv = this.Fr.inv(this.R);
         this.sanityCheck = sanityCheck;
     }
@@ -223,7 +251,7 @@ class WitnessCalculator {
             for (let i=0; i<self.n32; i++) {
                 arr[self.n32-1-i] = self.i32[idx+2+i];
             }
-            const res = self.Fr.e(Scalar.fromArray(arr, 0x100000000));
+            const res = self.Fr.e(ffjavascript.Scalar.fromArray(arr, 0x100000000));
             if (self.i32[idx + 1] & 0x40000000) {
                 return fromMontgomery(res);
             } else {
@@ -258,9 +286,9 @@ class WitnessCalculator {
         {
             let a;
             if (self.Fr.geq(v, self.Fr.zero)) {
-                a = Scalar.toNumber(v);
+                a = ffjavascript.Scalar.toNumber(v);
             } else {
-                a = Scalar.toNumber( self.Fr.sub(v, minShort));
+                a = ffjavascript.Scalar.toNumber( self.Fr.sub(v, minShort));
                 a = a - 0x80000000;
                 a = 0x100000000 + a;
             }
@@ -271,7 +299,7 @@ class WitnessCalculator {
 
         self.i32[(p >> 2)] = 0;
         self.i32[(p >> 2) + 1] = 0x80000000;
-        const arr = Scalar.toArray(v, 0x100000000);
+        const arr = ffjavascript.Scalar.toArray(v, 0x100000000);
         for (let i=0; i<self.n32; i++) {
             const idx = arr.length-1-i;
 
@@ -284,5 +312,4 @@ class WitnessCalculator {
     }
 }
 
-
-
+exports.WitnessCalculatorBuilder = builder;
