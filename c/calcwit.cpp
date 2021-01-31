@@ -58,7 +58,7 @@ void Circom_CalcWit::reset() {
         signalAssigned[i] = false;
     }
 
-    #pragma omp paallel for
+    #pragma omp parallel for
     for (int i=0; i<circuit->NComponents; i++) {
         inputSignalsToTrigger[i] = circuit->components[i].inputSignals;
     }
@@ -183,7 +183,7 @@ void Circom_CalcWit::setSignal(int currentComponentIdx, int cIdx, int sIdx, PFrE
     if ((circuit->components[currentComponentIdx].newThread)&&(currentComponentIdx == cIdx)) {
     // syncPrintf("Finished: %d\n", cIdx);
        cvs[sIdx % NMUTEXES].notify_all();
-    } 
+    }
 
 }
 
