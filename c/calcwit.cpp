@@ -7,8 +7,11 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <thread>
+#include <chrono>
 #include "calcwit.hpp"
 #include "utils.hpp"
+
+using namespace std::chrono_literals;
 
 Circom_CalcWit::Circom_CalcWit(Circom_Circuit *aCircuit) {
     circuit = aCircuit;
@@ -125,7 +128,7 @@ void Circom_CalcWit::getSignal(int currentComponentIdx, int cIdx, int sIdx, PFrE
     if ((circuit->components[cIdx].newThread)&&(currentComponentIdx != cIdx)) {
         std::unique_lock<std::mutex> lk(mutexes[cIdx % NMUTEXES]);
         while (!signalAssigned[sIdx]) {
-            cvs[sIdx % NMUTEXES].wait(lk);
+            cvs[sIdx % NMUTEXES].wait_for(lk, 10ms);
         }
         lk.unlock();
     }
@@ -240,7 +243,7 @@ void Circom_CalcWit::join() {
     for (int i=0; i<circuit->NComponents; i++) {
         std::unique_lock<std::mutex> lk(mutexes[i % NMUTEXES]);
         while (inputSignalsToTrigger[i] != -1) {
-            cvs[i % NMUTEXES].wait(lk);
+            cvs[i % NMUTEXES].wait_for(lk, 10ms);
         }
         // cvs[i % NMUTEXES].wait(lk, [&]{return inputSignalsToTrigger[i] == -1;});
         lk.unlock();
