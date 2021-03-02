@@ -316,7 +316,7 @@ void Circom_CalcWit::calculateProve(void *wtns, json &input, std::function<bool(
     if (!isCanceled()) {
 
         #pragma omp raw for
-        for (int i=0;i<circuit->NVars;i++) {
+        for (unsigned int i=0;i<circuit->NVars;i++) {
             FrElement v;
             getWitness(i, &v);
             Fr_toLongNormal(&v, &v);

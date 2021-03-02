@@ -39,7 +39,7 @@ struct Circom_Component {
 };
 
 struct __attribute__((__packed__)) Circom_Circuit {
-    int *wit2sig;
+    unsigned int *wit2sig;
     Circom_Component *components;
     u32 *mapIsInput;
     PFrElement constants;
