@@ -18,6 +18,10 @@ using json = nlohmann::json;
 #include "circom.hpp"
 #include "utils.hpp"
 
+#ifdef SERVER_ENABLE
+#include "socket.hpp"
+#endif
+
 Circom_Circuit *circuit;
 
 
@@ -344,78 +348,140 @@ Circom_Circuit *loadCircuit(std::string const &datFileName) {
     return circuit;
 }
 
+
+void computeWitness(char *inputFile, char *outputFile) {
+    struct timeval begin, end;
+    long seconds, microseconds; 
+    double elapsed;
+
+    gettimeofday(&begin,0);
+    Circom_CalcWit *ctx = new Circom_CalcWit(circuit);
+
+    std::string infilename = inputFile;
+    gettimeofday(&end,0);
+    seconds = end.tv_sec - begin.tv_sec;
+    microseconds = end.tv_usec - begin.tv_usec;
+    elapsed = seconds + microseconds*1e-6;
+
+    printf("Up to loadJson %.20f\n", elapsed);
+
+    if (hasEnding(infilename, std::string(".bin"))) {
+       loadBin(ctx, infilename);
+    } else if (hasEnding(infilename, std::string(".json"))) {
+       loadJson(ctx, infilename);
+    } else {
+       handle_error("Invalid input extension (.bin / .json)");
+    }
+
+    ctx->join();
+
+    // printf("Finished!\n");
+
+    std::string outfilename = outputFile;
+
+    if (hasEnding(outfilename, std::string(".wtns"))) {
+       gettimeofday(&end,0);
+       seconds = end.tv_sec - begin.tv_sec;
+       microseconds = end.tv_usec - begin.tv_usec;
+       elapsed = seconds + microseconds*1e-6;
+
+       printf("Up to WriteWtns %.20f\n", elapsed);
+       writeOutBin(ctx, outfilename);
+     } else if (hasEnding(outfilename, std::string(".json"))) {
+         writeOutJson(ctx, outfilename);
+     } else if (hasEnding(outfilename, std::string(".wshm"))) {
+         gettimeofday(&end,0);
+         seconds = end.tv_sec - begin.tv_sec;
+         microseconds = end.tv_usec - begin.tv_usec;
+         elapsed = seconds + microseconds*1e-6;
+
+         printf("Up to WriteShmem %.20f\n", elapsed);
+         writeOutShmem(ctx, outfilename);
+     } else {
+         handle_error("Invalid output extension (.bin / .json)");
+     }
+
+     delete ctx;
+       gettimeofday(&end,0);
+       seconds = end.tv_sec - begin.tv_sec;
+       microseconds = end.tv_usec - begin.tv_usec;
+       elapsed = seconds + microseconds*1e-6;
+
+       printf("Total %.20f\n", elapsed);
+#ifndef SERVER_ENABLE
+       exit(EXIT_SUCCESS);
+#endif
+}
+
 int main(int argc, char *argv[]) {
+    struct timeval begin, end;
+    long seconds, microseconds; 
+    double elapsed;
+
+    gettimeofday(&begin,0);
+#ifndef SERVER_ENABLE
     if (argc!=3) {
         std::string cl = argv[0];
         std::string base_filename = cl.substr(cl.find_last_of("/\\") + 1);
         std::cout << "Usage: " << base_filename << " <input.<bin|json>> <output.<wtns|json|wshm>>\n";
     } else {
-
-        struct timeval begin, end;
-        long seconds, microseconds; 
-        double elapsed;
-
-	gettimeofday(&begin,0);
-
         std::string datFileName = argv[0];
         datFileName += ".dat";
 
         circuit = loadCircuit(datFileName);
 
+        gettimeofday(&end,0);
+        seconds = end.tv_sec - begin.tv_sec;
+        microseconds = end.tv_usec - begin.tv_usec;
+        elapsed = seconds + microseconds*1e-6;
+
+        printf("Up to computeWitness %.20f\n", elapsed);
         // open output
-        Circom_CalcWit *ctx = new Circom_CalcWit(circuit);
+	computeWitness(argv[1], argv[2]);
 
-        std::string infilename = argv[1];
-	    gettimeofday(&end,0);
-            seconds = end.tv_sec - begin.tv_sec;
-            microseconds = end.tv_usec - begin.tv_usec;
-            elapsed = seconds + microseconds*1e-6;
+#else
+    {
+        std::string datFileName = argv[0];
+        datFileName += ".dat";
 
-            printf("Up to loadJson %.20f\n", elapsed);
+        int circuitInit=0;
+        t_witness_msg message;
 
-        if (hasEnding(infilename, std::string(".bin"))) {
-            loadBin(ctx, infilename);
-        } else if (hasEnding(infilename, std::string(".json"))) {
-            loadJson(ctx, infilename);
-        } else {
-            handle_error("Invalid input extension (.bin / .json)");
-        }
+        if (!ServerInit()) {
+	  exit(1);
+	}
 
-        ctx->join();
+	while(1) {
+           int sock;
+           sock = ReceiveMsg((void *) &message, sizeof(t_witness_msg));
+           if (!sock) {
+              continue;
+           }
+           std::cout << " Output file " << message.outputFile << "\n";
+           std::cout << " Input file " << message.inputFile << "\n";
 
-        // printf("Finished!\n");
+	   if (!circuitInit) {
+              std::cout << " Load Circuit " << datFileName << "\n";
+              circuit = loadCircuit(datFileName);
+	      circuitInit=1;
 
-        std::string outfilename = argv[2];
+              gettimeofday(&end,0);
+              seconds = end.tv_sec - begin.tv_sec;
+              microseconds = end.tv_usec - begin.tv_usec;
+              elapsed = seconds + microseconds*1e-6;
 
-        if (hasEnding(outfilename, std::string(".wtns"))) {
-	    gettimeofday(&end,0);
-            seconds = end.tv_sec - begin.tv_sec;
-            microseconds = end.tv_usec - begin.tv_usec;
-            elapsed = seconds + microseconds*1e-6;
+              printf("Up to computeWitness %.20f\n", elapsed);
+	   }
 
-            printf("Up to WriteWtns %.20f\n", elapsed);
-            writeOutBin(ctx, outfilename);
-        } else if (hasEnding(outfilename, std::string(".json"))) {
-            writeOutJson(ctx, outfilename);
-        } else if (hasEnding(outfilename, std::string(".wshm"))) {
-	    gettimeofday(&end,0);
-            seconds = end.tv_sec - begin.tv_sec;
-            microseconds = end.tv_usec - begin.tv_usec;
-            elapsed = seconds + microseconds*1e-6;
+           if (circuitInit) {
+             std::cout << " Compute Witness " << message.outputFile << "\n";
+             computeWitness(message.inputFile, message.outputFile);
+	   }
 
-            printf("Up to WriteShmem %.20f\n", elapsed);
-            writeOutShmem(ctx, outfilename);
-        } else {
-            handle_error("Invalid output extension (.bin / .json)");
-        }
-
-        delete ctx;
-	    gettimeofday(&end,0);
-            seconds = end.tv_sec - begin.tv_sec;
-            microseconds = end.tv_usec - begin.tv_usec;
-            elapsed = seconds + microseconds*1e-6;
-
-            printf("Total %.20f\n", elapsed);
-        exit(EXIT_SUCCESS);
+	   SocketClose(sock);
+           sleep(1);
+	}
+#endif
     }
 }
+
