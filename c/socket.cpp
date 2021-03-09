@@ -74,6 +74,22 @@ int ServerInit() {
    return 1;
 }
 
+//receive the data from the server
+int SocketReceive(int hSocket,void* Rsp,short RvcSize)
+{
+    int shortRetval = -1;
+    struct timeval tv;
+    tv.tv_sec = 20;  /* 20 Secs Timeout */
+    tv.tv_usec = 0;
+    if(setsockopt(hSocket, SOL_SOCKET, SO_RCVTIMEO,(char *)&tv,sizeof(tv)) < 0)
+    {
+        printf("Time Out\n");
+        return -1;
+    }
+    shortRetval = recv(hSocket, Rsp, RvcSize, 0);
+    return shortRetval;
+}
+
 int ReceiveMsg(void *message, int len) {
    int sock, clientLen;
    struct sockaddr_in client;
@@ -96,4 +112,12 @@ int ReceiveMsg(void *message, int len) {
 
 void SocketClose(int socket) {
    close(socket);
+}
+
+int SendConfirmation(int sock) {
+   int reply = 1;
+   if( send(sock, (void *) &reply , sizeof(int), 0) < 0) {
+       return 0;
+   }
+   return 1;
 }

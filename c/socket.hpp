@@ -14,9 +14,11 @@ typedef struct {
 short SocketCreate(void);
 int SocketConnect(int hSocket);
 int SocketSend(int hSocket,void* Rqst,short lenRqst);
+int SocketReceive(int hSocket,void * Rsp,short RvcSize);
 int BindCreatedSocket(int hSocket);
 int ServerInit();
 int ReceiveMsg(void *message, int len);
 void SocketClose(int socket);
+int SendConfirmation(int socket);
  
 #endif
