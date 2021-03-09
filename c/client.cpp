@@ -35,8 +35,12 @@ int main(int argc, char *argv[]) {
         //Send data to the server, and retry until file created
         SocketSend(hSocket, (void *) &message, sizeof(t_witness_msg));
 
-        //Received the data from the server
-        SocketReceive(hSocket, (void *) &server_reply, sizeof(int));
+	while (1) {
+          if (access(message.outputFile, F_OK) == 0) {
+		  break;
+	  }
+	  sleep(1);
+	}
     
         close(hSocket);
         shutdown(hSocket,0);

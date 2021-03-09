@@ -481,9 +481,7 @@ int main(int argc, char *argv[]) {
            if (circuitInit) {
              std::cout << " Compute Witness " << message.outputFile << "\n";
              computeWitness(message.inputFile, message.outputFile);
-	     SendConfirmation(sock);
 	   }
-
 
 	   SocketClose(sock);
            sleep(1);
