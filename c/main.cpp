@@ -29,6 +29,10 @@ Circom_Circuit *circuit;
            do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 #define SHMEM_WITNESS_KEY (123456)
+#define FAST_LOG2(x) (sizeof(unsigned long)*8 - 1 - __builtin_clzl((unsigned long)(x)))
+#define FAST_LOG2_UP(x) (((x) - (1 << FAST_LOG2(x))) ? FAST_LOG2(x) + 1 : FAST_LOG2(x))
+
+
 
 // assumptions
 // 1) There is only one key assigned for shared memory. This means
@@ -86,18 +90,19 @@ void writeOutShmem(Circom_CalcWit *ctx, std::string filename) {
     u64 idSection2length = n8*circuit->NVars;
     fwrite(&idSection2length, 8, 1, write_ptr);
 
+    u64 nElems = (1 << (FAST_LOG2_UP(nVars)+1)) + 8;
 
     // generate key
     key_t key = SHMEM_WITNESS_KEY;
     fwrite(&key, sizeof(key_t), 1, write_ptr);
 
     // Setup shared memory
-    if ((shmid = shmget(key, circuit->NVars * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0) {
+    if ((shmid = shmget(key, nElems * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0) {
        // preallocated shared memory segment is too small => Retrieve id by accesing old segment
        // Delete old segment and create new with corret size
        shmid = shmget(key, 4, IPC_CREAT | 0666);
        shmctl(shmid, IPC_RMID, NULL);
-       if ((shmid = shmget(key, circuit->NVars * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0){
+       if ((shmid = shmget(key, nElems * Fr_N64 * sizeof(u64), IPC_CREAT | 0666)) < 0){
          status = -1;
          fwrite(&status, sizeof(status), 1, write_ptr);
          fclose(write_ptr);
