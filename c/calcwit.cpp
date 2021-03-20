@@ -66,7 +66,7 @@ void Circom_CalcWit::reset() {
         inputSignalsToTrigger[i] = circuit->components[i].inputSignals;
     }
 
-    for (int i=0; i<circuit->NComponents; i++) {
+    for (int i=circuit->NComponents-1; i>=0; i--) {
         if (inputSignalsToTrigger[i] == 0) triggerComponent(i);
     }
 }
