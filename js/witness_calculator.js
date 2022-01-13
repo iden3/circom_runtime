@@ -384,24 +384,8 @@ class WitnessCalculatorCircom2 {
 
         return w;
     }
-    
+
     async calculateBinWitness(input, sanityCheck) {
-        const buff32 = new Uint32Array(this.witnessSize*this.n32);
-        const buff = new  Uint8Array( buff32.buffer);
-        await this._doCalculateWitness(input, sanityCheck);
-
-        for (let i=0; i<this.witnessSize; i++) {
-            this.instance.exports.getWitness(i);
-        const pos = i*this.n32;
-            for (let j=0; j<this.n32; j++) {
-        buff32[pos+j] = this.instance.exports.readSharedRWMemory(j);
-            }
-        }
-
-    return buff;
-    }
-
-    async calculateWTNSBin(input, sanityCheck) {
         const buff32 = new Uint32Array(this.witnessSize*this.n32+this.n32+11);
         const buff = new  Uint8Array( buff32.buffer);
         await this._doCalculateWitness(input, sanityCheck);
