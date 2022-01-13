@@ -170,6 +170,10 @@ class WitnessCalculatorCircom1 {
         this.sanityCheck = sanityCheck;
     }
 
+    circom_version() {
+        return 1;
+    }
+
     async _doCalculateWitness(input, sanityCheck) {
         this.instance.exports.init((this.sanityCheck || sanityCheck) ? 1 : 0);
         const pSigOffset = this.allocInt();
@@ -385,7 +389,7 @@ class WitnessCalculatorCircom2 {
         return w;
     }
 
-    async calculateBinWitness(input, sanityCheck) {
+    async calculateWTNSBin(input, sanityCheck) {
         const buff32 = new Uint32Array(this.witnessSize*this.n32+this.n32+11);
         const buff = new  Uint8Array( buff32.buffer);
         await this._doCalculateWitness(input, sanityCheck);
