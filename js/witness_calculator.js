@@ -17,7 +17,7 @@ limitations under the License.
 
 */
 
-import { flatArray, fnvHash, fromArray32, toArray32 } from "./utils.js";
+import { flatArray, fnvHash, toArray32 } from "./utils.js";
 import { Scalar, F1Field } from "ffjavascript";
 
 export default async function builder(code, options) {
@@ -331,7 +331,7 @@ class WitnessCalculatorCircom2 {
         for (let i=0; i<this.n32; i++) {
             arr[this.n32-1-i] = this.instance.exports.readSharedRWMemory(i);
         }
-        this.prime = fromArray32(arr);
+        this.prime = Scalar.fromArray(arr, 0x100000000);
 
         this.witnessSize = this.instance.exports.getWitnessSize();
 

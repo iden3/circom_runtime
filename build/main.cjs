@@ -52,6 +52,7 @@ function fnvHash(str) {
     return shash;
 }
 
+// Note that this pads zeros
 function toArray32(s,size) {
     const res = []; //new Uint32Array(size); //has no unshift
     let rem = BigInt(s);
@@ -66,15 +67,6 @@ function toArray32(s,size) {
         res.unshift(0);
         i--;
     }
-    }
-    return res;
-}
-
-function fromArray32(arr) { //returns a BigInt
-    var res = BigInt(0);
-    const radix = BigInt(0x100000000);
-    for (let i = 0; i<arr.length; i++) {
-        res = res*radix + BigInt(arr[i]);
     }
     return res;
 }
@@ -391,7 +383,7 @@ class WitnessCalculatorCircom2 {
         for (let i=0; i<this.n32; i++) {
             arr[this.n32-1-i] = this.instance.exports.readSharedRWMemory(i);
         }
-        this.prime = fromArray32(arr);
+        this.prime = ffjavascript.Scalar.fromArray(arr, 0x100000000);
 
         this.witnessSize = this.instance.exports.getWitnessSize();
 

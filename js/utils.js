@@ -46,6 +46,7 @@ export function fnvHash(str) {
     return shash;
 }
 
+// Note that this pads zeros
 export function toArray32(s,size) {
     const res = []; //new Uint32Array(size); //has no unshift
     let rem = BigInt(s);
@@ -60,15 +61,6 @@ export function toArray32(s,size) {
         res.unshift(0);
         i--;
     }
-    }
-    return res;
-}
-
-export function fromArray32(arr) { //returns a BigInt
-    var res = BigInt(0);
-    const radix = BigInt(0x100000000);
-    for (let i = 0; i<arr.length; i++) {
-        res = res*radix + BigInt(arr[i]);
     }
     return res;
 }
