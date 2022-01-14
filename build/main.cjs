@@ -2,12 +2,7 @@
 
 Object.defineProperty(exports, '__esModule', { value: true });
 
-var fnv = require('fnv-plus');
 var ffjavascript = require('ffjavascript');
-
-function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
-
-var fnv__default = /*#__PURE__*/_interopDefaultLegacy(fnv);
 
 /*
 
@@ -44,7 +39,17 @@ function flatArray(a) {
 }
 
 function fnvHash(str) {
-    return fnv__default['default'].hash(str, 64).hex();
+    const uint64_max = BigInt(2) ** BigInt(64);
+    let hash = BigInt("0xCBF29CE484222325");
+    for (var i = 0; i < str.length; i++) {
+    hash ^= BigInt(str[i].charCodeAt());
+    hash *= BigInt(0x100000001B3);
+    hash %= uint64_max;
+    }
+    let shash = hash.toString(16);
+    let n = 16 - shash.length;
+    shash = '0'.repeat(n).concat(shash);
+    return shash;
 }
 
 /* globals WebAssembly */
