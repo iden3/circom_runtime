@@ -52,6 +52,33 @@ function fnvHash(str) {
     return shash;
 }
 
+function toArray32(s,size) {
+    const res = []; //new Uint32Array(size); //has no unshift
+    let rem = BigInt(s);
+    const radix = BigInt(0x100000000);
+    while (rem) {
+        res.unshift( Number(rem % radix));
+        rem = rem / radix;
+    }
+    if (size) {
+    var i = size - res.length;
+    while (i>0) {
+        res.unshift(0);
+        i--;
+    }
+    }
+    return res;
+}
+
+function fromArray32(arr) { //returns a BigInt
+    var res = BigInt(0);
+    const radix = BigInt(0x100000000);
+    for (let i = 0; i<arr.length; i++) {
+        res = res*radix + BigInt(arr[i]);
+    }
+    return res;
+}
+
 /* globals WebAssembly */
 
 async function builder(code, options) {
@@ -201,6 +228,10 @@ class WitnessCalculatorCircom1 {
         this.R = this.Fr.e( ffjavascript.Scalar.shiftLeft(1 , this.n64*64));
         this.RInv = this.Fr.inv(this.R);
         this.sanityCheck = sanityCheck;
+    }
+
+    circom_version() {
+        return 1;
     }
 
     async _doCalculateWitness(input, sanityCheck) {
@@ -418,7 +449,7 @@ class WitnessCalculatorCircom2 {
         return w;
     }
 
-    async calculateBinWitness(input, sanityCheck) {
+    async calculateWTNSBin(input, sanityCheck) {
         const buff32 = new Uint32Array(this.witnessSize*this.n32+this.n32+11);
         const buff = new  Uint8Array( buff32.buffer);
         await this._doCalculateWitness(input, sanityCheck);
@@ -483,34 +514,6 @@ class WitnessCalculatorCircom2 {
         return buff;
     }
 
-}
-
-
-function toArray32(s,size) {
-    const res = []; //new Uint32Array(size); //has no unshift
-    let rem = BigInt(s);
-    const radix = BigInt(0x100000000);
-    while (rem) {
-        res.unshift( Number(rem % radix));
-        rem = rem / radix;
-    }
-    if (size) {
-    var i = size - res.length;
-    while (i>0) {
-        res.unshift(0);
-        i--;
-    }
-    }
-    return res;
-}
-
-function fromArray32(arr) { //returns a BigInt
-    var res = BigInt(0);
-    const radix = BigInt(0x100000000);
-    for (let i = 0; i<arr.length; i++) {
-        res = res*radix + BigInt(arr[i]);
-    }
-    return res;
 }
 
 exports.WitnessCalculatorBuilder = builder;
