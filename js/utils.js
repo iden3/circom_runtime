@@ -45,3 +45,22 @@ export function fnvHash(str) {
     shash = '0'.repeat(n).concat(shash);
     return shash;
 }
+
+// Note that this pads zeros
+export function toArray32(s,size) {
+    const res = []; //new Uint32Array(size); //has no unshift
+    let rem = BigInt(s);
+    const radix = BigInt(0x100000000);
+    while (rem) {
+        res.unshift( Number(rem % radix));
+        rem = rem / radix;
+    }
+    if (size) {
+    var i = size - res.length;
+    while (i>0) {
+        res.unshift(0);
+        i--;
+    }
+    }
+    return res;
+}
