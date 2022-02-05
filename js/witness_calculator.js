@@ -337,7 +337,7 @@ class WitnessCalculatorCircom2 {
 
         this.sanityCheck = sanityCheck;
     }
-    
+
     circom_version() {
         return this.instance.exports.getVersion();
     }
@@ -383,7 +383,7 @@ class WitnessCalculatorCircom2 {
             for (let j=0; j<this.n32; j++) {
             arr[this.n32-1-j] = this.instance.exports.readSharedRWMemory(j);
             }
-            w.push(fromArray32(arr));
+            w.push(Scalar.fromArray(arr, 0x100000000));
         }
 
         return w;
@@ -393,7 +393,7 @@ class WitnessCalculatorCircom2 {
         const buff32 = new Uint32Array(this.witnessSize*this.n32+this.n32+11);
         const buff = new  Uint8Array( buff32.buffer);
         await this._doCalculateWitness(input, sanityCheck);
-      
+
         //"wtns"
         buff[0] = "w".charCodeAt(0)
         buff[1] = "t".charCodeAt(0)
