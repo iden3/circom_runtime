@@ -61,6 +61,8 @@ export default async function builder(code, options) {
                     errStr = "Assert Failed. ";
                 } else if (code == 5) {
                     errStr = "Not enough memory. ";
+                } else if (code == 6) {
+                    errStr = "Input signal array access exceeds the size";
                 } else {
                     errStr = "Unknown error.";
                 }
