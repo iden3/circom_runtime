@@ -97,30 +97,60 @@ async function builder(code, options) {
 
     let wc;
 
+    let errStr = "";
+    let msgStr = "";
+
+    // Only circom 2 implements version lookup through exports in the WASM
+    // We default to `1` and update if we see the `getVersion` export (major version)
+    // These are updated after the instance is instantiated, assuming the functions are available
+    let majorVersion = 1;
+    // If we can't lookup the patch version, assume the lowest
+    let patchVersion = 0;
+
     const instance = await WebAssembly.instantiate(wasmModule, {
         env: {
             "memory": memory
         },
         runtime: {
             exceptionHandler: function(code) {
-                let errStr;
+                let err;
                 if (code == 1) {
-                    errStr = "Signal not found. ";
+                    err = "Signal not found. ";
                 } else if (code == 2) {
-                    errStr = "Too many signals set. ";
+                    err = "Too many signals set. ";
                 } else if (code == 3) {
-                    errStr = "Signal already set. ";
+                    err = "Signal already set. ";
                 } else if (code == 4) {
-                    errStr = "Assert Failed. ";
+                    err = "Assert Failed. ";
                 } else if (code == 5) {
-                    errStr = "Not enough memory. ";
+                    err = "Not enough memory. ";
                 } else if (code == 6) {
-                    errStr = "Input signal array access exceeds the size";
+                    err = "Input signal array access exceeds the size. ";
                 } else {
-                    errStr = "Unknown error.";
+                    err = "Unknown error. ";
                 }
-                console.log("ERROR: ", code, errStr);
-                throw new Error(errStr);
+                console.error("ERROR: ", code, errStr);
+                throw new Error(err + errStr);
+            },
+            // A new way of logging messages was added in Circom 2.0.7 that requires 2 new imports
+            // `printErrorMessage` and `writeBufferMessage`.
+            printErrorMessage: function() {
+                errStr += getMessage() + "\n";
+            },
+            writeBufferMessage: function() {
+                const msg = getMessage();
+                // Any calls to `log()` will always end with a `\n`, so that's when we print and reset
+                if (msg === "\n") {
+                    console.log(msgStr);
+                    msgStr = "";
+                } else {
+                    // If we've buffered other content, put a space in between the items
+                    if (msgStr !== "") {
+                        msgStr += " ";
+                    }
+                    // Then append the message to the message we are creating
+                    msgStr += msg;
+                }
             },
             showSharedRWMemory: function() {
                 const shared_rw_memory_size = instance.exports.getFieldNumLen32();
@@ -128,7 +158,20 @@ async function builder(code, options) {
                 for (let j=0; j<shared_rw_memory_size; j++) {
                     arr[shared_rw_memory_size-1-j] = instance.exports.readSharedRWMemory(j);
                 }
-                console.log(ffjavascript.Scalar.fromArray(arr, 0x100000000));
+
+                // In circom 2.0.7, they changed the log() function to allow strings and changed the
+                // output API. This smoothes over the breaking change.
+                if (patchVersion >= 7) {
+                    // If we've buffered other content, put a space in between the items
+                    if (msgStr !== "") {
+                        msgStr += " ";
+                    }
+                    // Then append the value to the message we are creating
+                    const msg = (ffjavascript.Scalar.fromArray(arr, 0x100000000).toString());
+                    msgStr += msg;
+                } else {
+                    console.log(ffjavascript.Scalar.fromArray(arr, 0x100000000));
+                }
             },
             error: function(code, pstr, a,b,c,d) {
                 let errStr;
@@ -170,6 +213,16 @@ async function builder(code, options) {
         }
     });
 
+    if (typeof instance.exports.getVersion == 'function') {
+        majorVersion = instance.exports.getVersion();
+    }
+    if (typeof instance.exports.getMinorVersion == 'function') {
+        instance.exports.getMinorVersion();
+    }
+    if (typeof instance.exports.getPatchVersion == 'function') {
+        patchVersion = instance.exports.getPatchVersion();
+    }
+
     const sanityCheck =
         options &&
         (
@@ -180,13 +233,24 @@ async function builder(code, options) {
             options.logFinishComponent
         );
 
-    if (typeof instance.exports.getVersion == 'function') {
-        // Only circom 2 WASMs implement versioning
+    // We explicitly check for major version 2 in case there's a circom v3 in the future
+    if (majorVersion === 2) {
         wc = new WitnessCalculatorCircom2(instance, sanityCheck);
     } else {
+        // TODO: Maybe we want to check for the explicit version 1 before choosing this?
         wc = new WitnessCalculatorCircom1(memory, instance, sanityCheck);
     }
     return wc;
+
+    function getMessage() {
+        var message = "";
+        var c = instance.exports.getMessageChar();
+        while ( c != 0 ) {
+            message += String.fromCharCode(c);
+            c = instance.exports.getMessageChar();
+        }
+        return message;
+    }
 
     function p2str(p) {
         const i8 = new Uint8Array(memory.buffer);
