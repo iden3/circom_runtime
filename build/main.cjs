@@ -104,6 +104,8 @@ async function builder(code, options) {
     // We default to `1` and update if we see the `getVersion` export (major version)
     // These are updated after the instance is instantiated, assuming the functions are available
     let majorVersion = 1;
+    // After Circom 2.0.7, Blaine added exported functions for getting minor and patch versions
+    let minorVersion = 0;
     // If we can't lookup the patch version, assume the lowest
     let patchVersion = 0;
 
@@ -161,7 +163,7 @@ async function builder(code, options) {
 
                 // In circom 2.0.7, they changed the log() function to allow strings and changed the
                 // output API. This smoothes over the breaking change.
-                if (patchVersion >= 7) {
+                if (majorVersion >= 2 && (minorVersion >= 1 || patchVersion >= 7)) {
                     // If we've buffered other content, put a space in between the items
                     if (msgStr !== "") {
                         msgStr += " ";
@@ -217,7 +219,7 @@ async function builder(code, options) {
         majorVersion = instance.exports.getVersion();
     }
     if (typeof instance.exports.getMinorVersion == 'function') {
-        instance.exports.getMinorVersion();
+        minorVersion = instance.exports.getMinorVersion();
     }
     if (typeof instance.exports.getPatchVersion == 'function') {
         patchVersion = instance.exports.getPatchVersion();
