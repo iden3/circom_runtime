@@ -1,6 +1,6 @@
 {
   "name": "circom_runtime",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Circom runtime",
   "type": "module",
   "exports": {
