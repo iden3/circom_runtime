@@ -24,12 +24,13 @@ const version = pkg.version;
 import WitnessCalculatorBuilder from "./js/witness_calculator.js";
 import { utils } from "ffjavascript";
 import yargs from "yargs";
+import { hideBin } from 'yargs/helpers'
 
 
 
-const argv = yargs
+const argv = yargs(hideBin(process.argv))
     .version(version)
-    .usage("calcwit -w [wasm file] -i [input file JSON] -o [output ouput file file  .json|.bin]")
+    .usage("calcwit -w [wasm file] -i [input file JSON] -o [output file  .json|.bin]")
     .alias("o", "output")
     .alias("i", "input")
     .alias("w", "wasm")
