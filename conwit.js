@@ -18,8 +18,14 @@ limitations under the License.
 */
 
 import fs from "fs";
-const pkg = JSON.parse(fs.readFileSync("./package.json"));
+import path from "path";
+import {fileURLToPath} from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const pkg = JSON.parse(fs.readFileSync(__dirname + "/package.json"));
 const version = pkg.version;
+
 
 import WitnessCalculatorBuilder from "./js/witness_calculator.js";
 import { utils } from "ffjavascript";
