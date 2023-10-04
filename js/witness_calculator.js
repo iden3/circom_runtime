@@ -421,7 +421,11 @@ class WitnessCalculatorCircom2 {
             const hLSB = parseInt(h.slice(8,16), 16);
             const fArr = flatArray(input[k]);
             for (let i=0; i<fArr.length; i++) {
-        const arrFr = toArray32(fArr[i],this.n32)
+        let possibleNegative = BigInt(fArr[i])
+        while (possibleNegative < 0n) {
+            possibleNegative += this.prime
+        }
+        const arrFr = toArray32(possibleNegative % this.prime, this.n32)
         for (let j=0; j<this.n32; j++) {
             this.instance.exports.writeSharedRWMemory(j,arrFr[this.n32-1-j]);
         }
