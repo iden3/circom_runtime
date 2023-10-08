@@ -17,7 +17,7 @@ limitations under the License.
 
 */
 
-import { flatArray, fnvHash, toArray32 } from "./utils.js";
+import { flatArray, fnvHash, toArray32, normalize } from "./utils.js";
 import { Scalar, F1Field } from "ffjavascript";
 
 export default async function builder(code, options) {
@@ -420,18 +420,32 @@ class WitnessCalculatorCircom2 {
             const hMSB = parseInt(h.slice(0,8), 16);
             const hLSB = parseInt(h.slice(8,16), 16);
             const fArr = flatArray(input[k]);
+            // Slight deviation from https://github.com/iden3/circom/blob/v2.1.6/code_producers/src/wasm_elements/common/witness_calculator.js
+            // because I don't know when this exported function was added
+            if (typeof this.instance.exports.getInputSignalSize === 'function') {
+                let signalSize = this.instance.exports.getInputSignalSize(hMSB, hLSB);
+                if (signalSize < 0){
+                    throw new Error(`Signal ${k} not found\n`);
+                }
+                if (fArr.length < signalSize) {
+                    throw new Error(`Not enough values for input signal ${k}\n`);
+                }
+                if (fArr.length > signalSize) {
+                    throw new Error(`Too many values for input signal ${k}\n`);
+                }
+            }
             for (let i=0; i<fArr.length; i++) {
-        const arrFr = toArray32(fArr[i],this.n32)
-        for (let j=0; j<this.n32; j++) {
-            this.instance.exports.writeSharedRWMemory(j,arrFr[this.n32-1-j]);
-        }
-        try {
+                const arrFr = toArray32(normalize(fArr[i],this.prime),this.n32)
+                for (let j=0; j<this.n32; j++) {
+                    this.instance.exports.writeSharedRWMemory(j,arrFr[this.n32-1-j]);
+                }
+                try {
                     this.instance.exports.setInputSignal(hMSB, hLSB,i);
-            input_counter++;
-        } catch (err) {
-            // console.log(`After adding signal ${i} of ${k}`)
+                    input_counter++;
+                } catch (err) {
+                    // console.log(`After adding signal ${i} of ${k}`)
                     throw new Error(err);
-        }
+                }
             }
 
         });

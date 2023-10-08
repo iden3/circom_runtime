@@ -32,6 +32,13 @@ export function flatArray(a) {
     }
 }
 
+// Ref https://github.com/iden3/circom/commit/ec6388cf6eb62463539cb4c40cc3ceae9826de19
+export function normalize(n, prime) {
+    let res = BigInt(n) % prime
+    if (res < 0) res += prime
+    return res
+}
+
 export function fnvHash(str) {
     const uint64_max = BigInt(2) ** BigInt(64);
     let hash = BigInt("0xCBF29CE484222325");
