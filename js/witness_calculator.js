@@ -395,7 +395,7 @@ class WitnessCalculatorCircom2 {
         this.n32 = this.instance.exports.getFieldNumLen32();
 
         this.instance.exports.getRawPrime();
-        const arr = new Array(this.n32);
+        const arr = new Uint32Array(this.n32);
         for (let i=0; i<this.n32; i++) {
             arr[this.n32-1-i] = this.instance.exports.readSharedRWMemory(i);
         }
