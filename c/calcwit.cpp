@@ -33,7 +33,7 @@ Circom_CalcWit::Circom_CalcWit(Circom_Circuit *aCircuit) {
 
 Circom_CalcWit::~Circom_CalcWit() {
 
-    delete signalAssigned;
+    delete[] signalAssigned;
 
     delete[] cvs;
     delete[] mutexes;
