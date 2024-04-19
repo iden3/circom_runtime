@@ -37,7 +37,7 @@
     "ffjavascript": "0.3.0"
   },
   "devDependencies": {
-    "eslint": "^8.17.0",
+    "eslint": "^9.1.0",
     "rollup": "^2.36.2"
   }
 }
