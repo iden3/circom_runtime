@@ -56,7 +56,7 @@ export default async function builder(code, options) {
     // If we can't lookup the patch version, assume the lowest
     let patchVersion = 0;
 
-    const instance = await WebAssembly.instantiate(wasmModule, {
+    let importsObject = {
         env: {
             "memory": memory
         },
@@ -160,7 +160,9 @@ export default async function builder(code, options) {
                 }
             }
         }
-    });
+    };
+
+    const instance = await WebAssembly.instantiate(wasmModule, { ...importsObject, ...options.additionalWASMImports });
 
     if (typeof instance.exports.getVersion == 'function') {
         majorVersion = instance.exports.getVersion();
