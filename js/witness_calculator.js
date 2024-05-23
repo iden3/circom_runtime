@@ -164,6 +164,10 @@ export default async function builder(code, options) {
 
     const instance = await WebAssembly.instantiate(wasmModule, { ...importsObject, ...options.additionalWASMImports });
 
+    if (options.initializeWasiReactorModuleInstance) {
+        options.initializeWasiReactorModuleInstance(instance);
+    }
+
     if (typeof instance.exports.getVersion == 'function') {
         majorVersion = instance.exports.getVersion();
     }
