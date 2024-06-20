@@ -84,7 +84,7 @@ async function builder(code, options) {
 
     options = options || {};
 
-    let memorySize = 32767;
+    let memorySize = 0;
     let memory;
     let memoryAllocated = false;
     while (!memoryAllocated){
