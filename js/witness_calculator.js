@@ -20,9 +20,8 @@ limitations under the License.
 import { flatArray, fnvHash, toArray32, normalize } from "./utils.js";
 import { Scalar, F1Field } from "ffjavascript";
 
-export default async function builder(code, options) {
 
-    options = options || {};
+export async function createWASMInstance(wasmSource, options) {
 
     let memorySize = 32767;
     let memory;
@@ -40,7 +39,7 @@ export default async function builder(code, options) {
         }
     }
 
-    const wasmModule = await WebAssembly.compile(code);
+    const wasmModule = await WebAssembly.compile(wasmSource);
 
     let wc;
 
@@ -162,10 +161,42 @@ export default async function builder(code, options) {
         }
     };
 
-    const instance = await WebAssembly.instantiate(wasmModule, { ...importsObject, ...options.additionalWASMImports });
+    WebAssembly.instantiate(wasmModule, importsObject);
 
-    if (options.initializeWasiReactorModuleInstance) {
-        options.initializeWasiReactorModuleInstance(instance);
+    function getMessage() {
+        var message = "";
+        var c = instance.exports.getMessageChar();
+        while ( c != 0 ) {
+            message += String.fromCharCode(c);
+            c = instance.exports.getMessageChar();
+        }
+        return message;
+    }
+
+    function p2str(p) {
+        const i8 = new Uint8Array(memory.buffer);
+
+        const bytes = [];
+
+        for (let i=0; i8[p+i]>0; i++)  bytes.push(i8[p+i]);
+
+        return String.fromCharCode.apply(null, bytes);
+    }
+
+};
+
+export default async function builder(codeOrWasmInstance, options) {
+
+    options = options || {};
+
+    let instance;
+
+    // In the event that you are running witness generation multiple times, it's
+    // better to reuse an existing wasm instance.
+    if (codeOrWasmInstance instanceof WebAssembly.Instance) {
+        instance = codeOrWasmInstance;
+    } else {
+        instance = await createWASMInstance(codeOrWasm, options);
     }
 
     if (typeof instance.exports.getVersion == 'function') {
@@ -197,25 +228,6 @@ export default async function builder(code, options) {
     }
     return wc;
 
-    function getMessage() {
-        var message = "";
-        var c = instance.exports.getMessageChar();
-        while ( c != 0 ) {
-            message += String.fromCharCode(c);
-            c = instance.exports.getMessageChar();
-        }
-        return message;
-    }
-
-    function p2str(p) {
-        const i8 = new Uint8Array(memory.buffer);
-
-        const bytes = [];
-
-        for (let i=0; i8[p+i]>0; i++)  bytes.push(i8[p+i]);
-
-        return String.fromCharCode.apply(null, bytes);
-    }
 };
 
 class WitnessCalculatorCircom1 {

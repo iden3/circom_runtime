@@ -80,9 +80,8 @@ function toArray32(s,size) {
 
 /* globals WebAssembly */
 
-async function builder(code, options) {
 
-    options = options || {};
+async function createWASMInstance(wasmSource, options) {
 
     let memorySize = 32767;
     let memory;
@@ -100,23 +99,14 @@ async function builder(code, options) {
         }
     }
 
-    const wasmModule = await WebAssembly.compile(code);
+    const wasmModule = await WebAssembly.compile(wasmSource);
 
     let wc;
 
     let errStr = "";
     let msgStr = "";
 
-    // Only circom 2 implements version lookup through exports in the WASM
-    // We default to `1` and update if we see the `getVersion` export (major version)
-    // These are updated after the instance is instantiated, assuming the functions are available
-    let majorVersion = 1;
-    // After Circom 2.0.7, Blaine added exported functions for getting minor and patch versions
-    let minorVersion = 0;
-    // If we can't lookup the patch version, assume the lowest
-    let patchVersion = 0;
-
-    const instance = await WebAssembly.instantiate(wasmModule, {
+    let importsObject = {
         env: {
             "memory": memory
         },
@@ -170,15 +160,7 @@ async function builder(code, options) {
 
                 // In circom 2.0.7, they changed the log() function to allow strings and changed the
                 // output API. This smoothes over the breaking change.
-                if (majorVersion >= 2 && (minorVersion >= 1 || patchVersion >= 7)) {
-                    // If we've buffered other content, put a space in between the items
-                    if (msgStr !== "") {
-                        msgStr += " ";
-                    }
-                    // Then append the value to the message we are creating
-                    const msg = (ffjavascript.Scalar.fromArray(arr, 0x100000000).toString());
-                    msgStr += msg;
-                } else {
+                {
                     console.log(ffjavascript.Scalar.fromArray(arr, 0x100000000));
                 }
             },
@@ -220,7 +202,44 @@ async function builder(code, options) {
                 }
             }
         }
-    });
+    };
+
+    WebAssembly.instantiate(wasmModule, importsObject);
+
+    function getMessage() {
+        var message = "";
+        var c = instance.exports.getMessageChar();
+        while ( c != 0 ) {
+            message += String.fromCharCode(c);
+            c = instance.exports.getMessageChar();
+        }
+        return message;
+    }
+
+    function p2str(p) {
+        const i8 = new Uint8Array(memory.buffer);
+
+        const bytes = [];
+
+        for (let i=0; i8[p+i]>0; i++)  bytes.push(i8[p+i]);
+
+        return String.fromCharCode.apply(null, bytes);
+    }
+
+}
+async function builder(codeOrWasmInstance, options) {
+
+    options = options || {};
+
+    let instance;
+
+    // In the event that you are running witness generation multiple times, it's
+    // better to reuse an existing wasm instance.
+    if (codeOrWasmInstance instanceof WebAssembly.Instance) {
+        instance = codeOrWasmInstance;
+    } else {
+        instance = await createWASMInstance(codeOrWasm, options);
+    }
 
     if (typeof instance.exports.getVersion == 'function') {
         majorVersion = instance.exports.getVersion();
@@ -251,25 +270,6 @@ async function builder(code, options) {
     }
     return wc;
 
-    function getMessage() {
-        var message = "";
-        var c = instance.exports.getMessageChar();
-        while ( c != 0 ) {
-            message += String.fromCharCode(c);
-            c = instance.exports.getMessageChar();
-        }
-        return message;
-    }
-
-    function p2str(p) {
-        const i8 = new Uint8Array(memory.buffer);
-
-        const bytes = [];
-
-        for (let i=0; i8[p+i]>0; i++)  bytes.push(i8[p+i]);
-
-        return String.fromCharCode.apply(null, bytes);
-    }
 }
 class WitnessCalculatorCircom1 {
     constructor(memory, instance, sanityCheck) {
