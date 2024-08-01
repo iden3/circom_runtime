@@ -41,8 +41,6 @@ export async function createWASMInstance(wasmSource, options) {
 
     const wasmModule = await WebAssembly.compile(wasmSource);
 
-    let wc;
-
     let errStr = "";
     let msgStr = "";
 
@@ -163,6 +161,8 @@ export async function createWASMInstance(wasmSource, options) {
 
     WebAssembly.instantiate(wasmModule, importsObject);
 
+    return wasmModule;
+
     function getMessage() {
         var message = "";
         var c = instance.exports.getMessageChar();
@@ -218,6 +218,8 @@ export default async function builder(codeOrWasmInstance, options) {
             options.logStartComponent ||
             options.logFinishComponent
         );
+
+    let wc;
 
     // We explicitly check for major version 2 in case there's a circom v3 in the future
     if (majorVersion === 2) {
