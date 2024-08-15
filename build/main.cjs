@@ -81,31 +81,8 @@ function toArray32(s,size) {
 /* globals WebAssembly */
 
 async function builder(code, options) {
-
-    options = options || {};
-
-    let memorySize = 32767;
-    let memory;
-    let memoryAllocated = false;
-    while (!memoryAllocated){
-        try{
-            memory = new WebAssembly.Memory({initial:memorySize});
-            memoryAllocated = true;
-        } catch(err){
-            if(memorySize === 1){
-                throw err;
-            }
-            console.warn("Could not allocate " + memorySize * 1024 * 64 + " bytes. This may cause severe instability. Trying with " + memorySize * 1024 * 64 / 2 + " bytes");
-            memorySize = Math.floor(memorySize/2);
-        }
-    }
-
-    const wasmModule = await WebAssembly.compile(code);
-
+    let instance;
     let wc;
-
-    let errStr = "";
-    let msgStr = "";
 
     // Only circom 2 implements version lookup through exports in the WASM
     // We default to `1` and update if we see the `getVersion` export (major version)
@@ -116,111 +93,138 @@ async function builder(code, options) {
     // If we can't lookup the patch version, assume the lowest
     let patchVersion = 0;
 
-    const instance = await WebAssembly.instantiate(wasmModule, {
-        env: {
-            "memory": memory
-        },
-        runtime: {
-            exceptionHandler: function(code) {
-                let err;
-                if (code == 1) {
-                    err = "Signal not found. ";
-                } else if (code == 2) {
-                    err = "Too many signals set. ";
-                } else if (code == 3) {
-                    err = "Signal already set. ";
-                } else if (code == 4) {
-                    err = "Assert Failed. ";
-                } else if (code == 5) {
-                    err = "Not enough memory. ";
-                } else if (code == 6) {
-                    err = "Input signal array access exceeds the size. ";
-                } else {
-                    err = "Unknown error. ";
-                }
-                console.error("ERROR: ", code, errStr);
-                throw new Error(err + errStr);
-            },
-            // A new way of logging messages was added in Circom 2.0.7 that requires 2 new imports
-            // `printErrorMessage` and `writeBufferMessage`.
-            printErrorMessage: function() {
-                errStr += getMessage() + "\n";
-            },
-            writeBufferMessage: function() {
-                const msg = getMessage();
-                // Any calls to `log()` will always end with a `\n`, so that's when we print and reset
-                if (msg === "\n") {
-                    console.log(msgStr);
-                    msgStr = "";
-                } else {
-                    // If we've buffered other content, put a space in between the items
-                    if (msgStr !== "") {
-                        msgStr += " ";
-                    }
-                    // Then append the message to the message we are creating
-                    msgStr += msg;
-                }
-            },
-            showSharedRWMemory: function() {
-                const shared_rw_memory_size = instance.exports.getFieldNumLen32();
-                const arr = new Uint32Array(shared_rw_memory_size);
-                for (let j=0; j<shared_rw_memory_size; j++) {
-                    arr[shared_rw_memory_size-1-j] = instance.exports.readSharedRWMemory(j);
-                }
+    if (code instanceof WebAssembly.Instance) {
+        instance = code;
+    } else {
+        options = options || {};
 
-                // In circom 2.0.7, they changed the log() function to allow strings and changed the
-                // output API. This smoothes over the breaking change.
-                if (majorVersion >= 2 && (minorVersion >= 1 || patchVersion >= 7)) {
-                    // If we've buffered other content, put a space in between the items
-                    if (msgStr !== "") {
-                        msgStr += " ";
-                    }
-                    // Then append the value to the message we are creating
-                    const msg = (ffjavascript.Scalar.fromArray(arr, 0x100000000).toString());
-                    msgStr += msg;
-                } else {
-                    console.log(ffjavascript.Scalar.fromArray(arr, 0x100000000));
+        let memorySize = 32767;
+        let memory;
+        let memoryAllocated = false;
+        while (!memoryAllocated){
+            try{
+                memory = new WebAssembly.Memory({initial:memorySize});
+                memoryAllocated = true;
+            } catch(err){
+                if(memorySize === 1){
+                    throw err;
                 }
-            },
-            error: function(code, pstr, a,b,c,d) {
-                let errStr;
-                if (code == 7) {
-                    errStr=p2str(pstr) + " " + wc.getFr(b).toString() + " != " + wc.getFr(c).toString() + " " +p2str(d);
-                } else if (code == 9) {
-                    errStr=p2str(pstr) + " " + wc.getFr(b).toString() + " " +p2str(c);
-                } else if ((code == 5)&&(options.sym)) {
-                    errStr=p2str(pstr)+ " " + options.sym.labelIdx2Name[c];
-                } else {
-                    errStr=p2str(pstr)+ " " + a + " " + b + " " + c + " " + d;
-                }
-                console.log("ERROR: ", code, errStr);
-                throw new Error(errStr);
-            },
-            log: function(a) {
-                console.log(wc.getFr(a).toString());
-            },
-            logGetSignal: function(signal, pVal) {
-                if (options.logGetSignal) {
-                    options.logGetSignal(signal, wc.getFr(pVal) );
-                }
-            },
-            logSetSignal: function(signal, pVal) {
-                if (options.logSetSignal) {
-                    options.logSetSignal(signal, wc.getFr(pVal) );
-                }
-            },
-            logStartComponent: function(cIdx) {
-                if (options.logStartComponent) {
-                    options.logStartComponent(cIdx);
-                }
-            },
-            logFinishComponent: function(cIdx) {
-                if (options.logFinishComponent) {
-                    options.logFinishComponent(cIdx);
-                }
+                console.warn("Could not allocate " + memorySize * 1024 * 64 + " bytes. This may cause severe instability. Trying with " + memorySize * 1024 * 64 / 2 + " bytes");
+                memorySize = Math.floor(memorySize/2);
             }
         }
-    });
+
+        const wasmModule = await WebAssembly.compile(code);
+
+        let errStr = "";
+        let msgStr = "";
+
+        instance = await WebAssembly.instantiate(wasmModule, {
+            env: {
+                "memory": memory
+            },
+            runtime: {
+                exceptionHandler: function(code) {
+                    let err;
+                    if (code == 1) {
+                        err = "Signal not found. ";
+                    } else if (code == 2) {
+                        err = "Too many signals set. ";
+                    } else if (code == 3) {
+                        err = "Signal already set. ";
+                    } else if (code == 4) {
+                        err = "Assert Failed. ";
+                    } else if (code == 5) {
+                        err = "Not enough memory. ";
+                    } else if (code == 6) {
+                        err = "Input signal array access exceeds the size. ";
+                    } else {
+                        err = "Unknown error. ";
+                    }
+                    console.error("ERROR: ", code, errStr);
+                    throw new Error(err + errStr);
+                },
+                // A new way of logging messages was added in Circom 2.0.7 that requires 2 new imports
+                // `printErrorMessage` and `writeBufferMessage`.
+                printErrorMessage: function() {
+                    errStr += getMessage() + "\n";
+                },
+                writeBufferMessage: function() {
+                    const msg = getMessage();
+                    // Any calls to `log()` will always end with a `\n`, so that's when we print and reset
+                    if (msg === "\n") {
+                        console.log(msgStr);
+                        msgStr = "";
+                    } else {
+                        // If we've buffered other content, put a space in between the items
+                        if (msgStr !== "") {
+                            msgStr += " ";
+                        }
+                        // Then append the message to the message we are creating
+                        msgStr += msg;
+                    }
+                },
+                showSharedRWMemory: function() {
+                    const shared_rw_memory_size = instance.exports.getFieldNumLen32();
+                    const arr = new Uint32Array(shared_rw_memory_size);
+                    for (let j=0; j<shared_rw_memory_size; j++) {
+                        arr[shared_rw_memory_size-1-j] = instance.exports.readSharedRWMemory(j);
+                    }
+
+                    // In circom 2.0.7, they changed the log() function to allow strings and changed the
+                    // output API. This smoothes over the breaking change.
+                    if (majorVersion >= 2 && (minorVersion >= 1 || patchVersion >= 7)) {
+                        // If we've buffered other content, put a space in between the items
+                        if (msgStr !== "") {
+                            msgStr += " ";
+                        }
+                        // Then append the value to the message we are creating
+                        const msg = (ffjavascript.Scalar.fromArray(arr, 0x100000000).toString());
+                        msgStr += msg;
+                    } else {
+                        console.log(ffjavascript.Scalar.fromArray(arr, 0x100000000));
+                    }
+                },
+                error: function(code, pstr, a,b,c,d) {
+                    let errStr;
+                    if (code == 7) {
+                        errStr=p2str(pstr) + " " + wc.getFr(b).toString() + " != " + wc.getFr(c).toString() + " " +p2str(d);
+                    } else if (code == 9) {
+                        errStr=p2str(pstr) + " " + wc.getFr(b).toString() + " " +p2str(c);
+                    } else if ((code == 5)&&(options.sym)) {
+                        errStr=p2str(pstr)+ " " + options.sym.labelIdx2Name[c];
+                    } else {
+                        errStr=p2str(pstr)+ " " + a + " " + b + " " + c + " " + d;
+                    }
+                    console.log("ERROR: ", code, errStr);
+                    throw new Error(errStr);
+                },
+                log: function(a) {
+                    console.log(wc.getFr(a).toString());
+                },
+                logGetSignal: function(signal, pVal) {
+                    if (options.logGetSignal) {
+                        options.logGetSignal(signal, wc.getFr(pVal) );
+                    }
+                },
+                logSetSignal: function(signal, pVal) {
+                    if (options.logSetSignal) {
+                        options.logSetSignal(signal, wc.getFr(pVal) );
+                    }
+                },
+                logStartComponent: function(cIdx) {
+                    if (options.logStartComponent) {
+                        options.logStartComponent(cIdx);
+                    }
+                },
+                logFinishComponent: function(cIdx) {
+                    if (options.logFinishComponent) {
+                        options.logFinishComponent(cIdx);
+                    }
+                }
+            }
+        });
+    }
 
     if (typeof instance.exports.getVersion == 'function') {
         majorVersion = instance.exports.getVersion();
