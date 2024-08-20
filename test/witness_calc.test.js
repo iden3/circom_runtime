@@ -20,10 +20,12 @@ describe("Witness Calc test", function () {
     //let curve;
 
     before(async () => {
+        // snarkjs.curves is not accessible yet, waiting for snarkjs release where it would be exported
         //curve = await snarkjs.curves.getCurveFromName("bn128");
     });
 
     after(async () => {
+        // that would be a proper way to terminate background jobs instead of `mocha --exit`
         //await curve.terminate();
     });
 
