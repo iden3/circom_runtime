@@ -1,4 +1,4 @@
-name: Continuous Integration
+name: JS Witness calc tests
 on:
   push:
     branches:

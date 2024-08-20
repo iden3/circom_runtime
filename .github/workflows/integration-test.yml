@@ -34,6 +34,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
           check-latest: true
           cache: 'npm'
+          cache-dependency-path: snarkjs/package-lock.json
 
       - name: Install circom_runtime dependencies
         run: npm ci
