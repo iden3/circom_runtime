@@ -35,11 +35,13 @@ export default async function builder(code, options) {
     // If we can't look up the patch version, assume the lowest
     let patchVersion = 0;
 
+    let codeIsWebAssemblyInstance = false;
+
     // If code is already prepared WebAssembly.Instance, we use it directly
     if (code instanceof WebAssembly.Instance) {
         instance = code;
+        codeIsWebAssemblyInstance = true;
     } else {
-
         let memorySize = 32767;
 
         if (options.memorySize) {
@@ -199,9 +201,13 @@ export default async function builder(code, options) {
     // We explicitly check for major version 2 in case there's a circom v3 in the future
     if (majorVersion === 2) {
         wc = new WitnessCalculatorCircom2(instance, sanityCheck);
-    } else {
-        // TODO: Maybe we want to check for the explicit version 1 before choosing this?
+    } else if (majorVersion === 1) {
+        if (codeIsWebAssemblyInstance) {
+            throw new Error('Loading code from WebAssembly instance is not supported for circom version 1');
+        }
         wc = new WitnessCalculatorCircom1(memory, instance, sanityCheck);
+    } else {
+        throw new Error(`Unsupported circom version: ${majorVersion}`);
     }
     return wc;
 
