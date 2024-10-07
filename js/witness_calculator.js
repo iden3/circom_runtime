@@ -76,6 +76,7 @@ export default async function builder(code, options) {
                 "memory": memory
             },
             runtime: {
+                printDebug: function () {},
                 exceptionHandler: function (code) {
                     let err;
                     if (code === 1) {
@@ -203,7 +204,7 @@ export default async function builder(code, options) {
         wc = new WitnessCalculatorCircom2(instance, sanityCheck);
     } else if (majorVersion === 1) {
         if (codeIsWebAssemblyInstance) {
-            throw new Error('Loading code from WebAssembly instance is not supported for circom version 1');
+            throw new Error("Loading code from WebAssembly instance is not supported for circom version 1");
         }
         wc = new WitnessCalculatorCircom1(memory, instance, sanityCheck);
     } else {
