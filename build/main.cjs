@@ -136,6 +136,9 @@ async function builder(code, options) {
                 "memory": memory
             },
             runtime: {
+                printDebug : function(value) {
+                    console.log("printDebug:", value);
+                },
                 exceptionHandler: function (code) {
                     let err;
                     if (code === 1) {
